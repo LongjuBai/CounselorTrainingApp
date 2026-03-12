@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reflection Training Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="hero">
+        <p class="kicker">Counselor Training Platform</p>
+        <h1>Reflection Training Lab</h1>
+        <p class="hero-copy">
+          Practice reflection skills by responding to simulated client prompts, then receive structured
+          feedback with a 0-1 score and evidence-based coaching.
+        </p>
+      </header>
+
+      <section class="panel">
+        <h2>API Setup</h2>
+        <p class="muted">
+          Enter your OpenRouter key manually or load it from <code>openrouter.txt</code> (local file only).
+        </p>
+        <div class="config-grid">
+          <label>
+            OpenRouter API Key
+            <input id="apiKeyInput" type="password" placeholder="sk-or-v1-..." autocomplete="off" />
+          </label>
+          <label>
+            Model
+            <input id="modelInput" type="text" value="stepfun/step-3.5-flash:free" />
+          </label>
+          <label class="file-label">
+            Load `openrouter.txt`
+            <input id="openrouterFileInput" type="file" accept=".txt" />
+          </label>
+          <label class="checkbox-row">
+            <input id="rememberToggle" type="checkbox" checked />
+            Remember API key + model in this browser
+          </label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>1. Simulate Client</h2>
+        <p class="muted">Select one or more topics and generate a client prompt.</p>
+        <div id="topicGrid" class="topic-grid" aria-label="Topic selector"></div>
+        <button id="generateClientBtn" class="btn btn-primary">Generate Simulated Client Prompt</button>
+
+        <h3>Generated Client Prompt</h3>
+        <div id="clientPromptBox" class="output-box">
+          No client prompt yet. Select topics, then click Generate.
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>2. Trainee Reflection</h2>
+        <label for="traineeResponse" class="muted">
+          Write your reflective response to the client prompt.
+        </label>
+        <textarea
+          id="traineeResponse"
+          rows="7"
+          placeholder="Type the counselor trainee response here..."
+        ></textarea>
+        <button id="evaluateBtn" class="btn btn-secondary">Evaluate Reflection</button>
+      </section>
+
+      <section class="panel">
+        <div class="feedback-header">
+          <h2>Feedback</h2>
+          <p class="muted">Four required parts from the evaluation prompt.</p>
+        </div>
+        <div class="feedback-grid">
+          <article class="feedback-card">
+            <h3>1) Score (0-1)</h3>
+            <p id="scoreValue" class="score-value">-</p>
+            <div class="score-track" aria-hidden="true">
+              <div id="scoreFill" class="score-fill"></div>
+            </div>
+          </article>
+          <article class="feedback-card">
+            <h3>2) Evidence Slices</h3>
+            <p id="evidenceBox" class="feedback-text">No evidence yet.</p>
+          </article>
+          <article class="feedback-card">
+            <h3>3) Rubric Explanation</h3>
+            <p id="explanationBox" class="feedback-text">No explanation yet.</p>
+          </article>
+          <article class="feedback-card">
+            <h3>4) Next Step + Suggested Response</h3>
+            <p id="suggestionBox" class="feedback-text">No next step yet.</p>
+          </article>
+        </div>
+      </section>
+
+      <p id="statusBox" class="status" role="status" aria-live="polite"></p>
+
+      <footer class="footer-note">
+        This tool is for training practice, not emergency or crisis support.
+      </footer>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

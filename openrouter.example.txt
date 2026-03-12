@@ -1,0 +1,3 @@
+model name: stepfun/step-3.5-flash:free
+
+API key: sk-or-v1-REPLACE_WITH_YOUR_KEY
