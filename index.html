@@ -23,40 +23,80 @@
         </p>
       </header>
 
-      <section class="panel">
-        <h2>API Setup</h2>
-        <p class="muted">
-          Enter your OpenRouter key manually or load it from <code>openrouter.txt</code> (local file only).
-        </p>
-        <div class="config-grid">
-          <label>
-            OpenRouter API Key
-            <input id="apiKeyInput" type="password" placeholder="sk-or-v1-..." autocomplete="off" />
-          </label>
-          <label>
-            Model
-            <input id="modelInput" type="text" value="stepfun/step-3.5-flash:free" />
-          </label>
-          <label class="file-label">
-            Load `openrouter.txt`
-            <input id="openrouterFileInput" type="file" accept=".txt" />
-          </label>
-          <label class="checkbox-row">
-            <input id="rememberToggle" type="checkbox" checked />
-            Remember API key + model in this browser
-          </label>
+      <details class="panel config-panel">
+        <summary class="config-summary">
+          <div>
+            <p class="kicker">OpenRouter Setup</p>
+            <h2>API Config</h2>
+          </div>
+          <span class="summary-hint">Click to expand</span>
+        </summary>
+        <div class="config-panel-body">
+          <p class="muted">
+            Enter your OpenRouter key manually or load it from <code>openrouter.txt</code> (local file only).
+          </p>
+          <div class="config-grid">
+            <label>
+              OpenRouter API Key
+              <input id="apiKeyInput" type="password" placeholder="sk-or-v1-..." autocomplete="off" />
+            </label>
+            <label>
+              Model
+              <input id="modelInput" type="text" value="stepfun/step-3.5-flash:free" />
+            </label>
+            <label class="file-label">
+              Load `openrouter.txt`
+              <input id="openrouterFileInput" type="file" accept=".txt" />
+            </label>
+            <label class="checkbox-row">
+              <input id="rememberToggle" type="checkbox" checked />
+              Remember API key + model in this browser
+            </label>
+          </div>
         </div>
-      </section>
+      </details>
 
       <section class="panel">
         <h2>1. Simulate Client</h2>
-        <p class="muted">Select one or more topics and generate a client prompt.</p>
-        <div id="topicGrid" class="topic-grid" aria-label="Topic selector"></div>
+        <p class="muted">
+          Pick a main issue first, then click a world region to silently draw a topic and narrative from the
+          scenario bank.
+        </p>
+        <div id="mainIssueGrid" class="issue-grid" aria-label="Main issue selector"></div>
+        <div class="simulator-layout">
+          <div class="map-panel">
+            <div class="map-header">
+              <div>
+                <h3>Regional Context Map</h3>
+                <p class="muted small">
+                  Only regions available for the selected issue are active. Clicking a region auto-selects a
+                  topic and narrative seed.
+                </p>
+              </div>
+              <button id="randomSelectionBtn" class="btn btn-ghost" type="button">Random Region + Narrative</button>
+            </div>
+            <div class="world-map-shell">
+              <svg class="world-map-art" viewBox="0 0 1000 540" aria-hidden="true">
+                <ellipse class="continent continent-a" cx="185" cy="165" rx="140" ry="95"></ellipse>
+                <ellipse class="continent continent-b" cx="255" cy="340" rx="82" ry="132" transform="rotate(14 255 340)"></ellipse>
+                <ellipse class="continent continent-c" cx="505" cy="160" rx="92" ry="68"></ellipse>
+                <ellipse class="continent continent-d" cx="572" cy="283" rx="78" ry="126" transform="rotate(8 572 283)"></ellipse>
+                <ellipse class="continent continent-e" cx="708" cy="212" rx="168" ry="96"></ellipse>
+                <ellipse class="continent continent-f" cx="852" cy="348" rx="90" ry="54"></ellipse>
+              </svg>
+              <div id="regionMap" class="region-map-hotspots" aria-label="World region selector"></div>
+            </div>
+          </div>
+          <aside class="selection-card">
+            <h3>Selected Scenario Seed</h3>
+            <p id="selectionSummary" class="selection-summary">No issue selected yet.</p>
+          </aside>
+        </div>
         <button id="generateClientBtn" class="btn btn-primary">Generate Simulated Client Prompt</button>
 
         <h3>Generated Client Prompt</h3>
         <div id="clientPromptBox" class="output-box">
-          No client prompt yet. Select topics, then click Generate.
+          No client prompt yet. Select an issue and region, then click Generate.
         </div>
       </section>
 

@@ -1,54 +1,29 @@
 const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
 const STORAGE_KEY = "reflection_training_config_v1";
+const MENTAL_BANK_URL = "./world_mental_bank.json";
 
-const TOPICS = [
-  {
-    id: "depression_anxiety",
-    label: "Depression/anxiety",
-    focus: "low mood, worry, daily functioning, hopelessness, emotional overwhelm",
-  },
-  {
-    id: "fitness_diet_cautionary",
-    label: "Fitness/diet - cautionary note",
-    focus: "movement, nutrition pressure, guilt language; avoid body shaming",
-  },
-  { id: "substance_use", label: "Substance use", focus: "ambivalence, coping, relapse risk, shame" },
-  { id: "vaccination", label: "Vaccination", focus: "hesitancy, trust, family conflict, fear" },
-  {
-    id: "domestic_violence",
-    label: "Domestic violence",
-    focus: "safety concerns, fear, control dynamics, support-seeking",
-  },
-  { id: "epidemic", label: "Epidemic", focus: "uncertainty, anxiety, grief, social disruption" },
-  {
-    id: "body_image_acceptance",
-    label: "Body image acceptance",
-    focus: "self-worth, social pressure, self-criticism, acceptance",
-  },
-  {
-    id: "intuitive_eating",
-    label: "Intuitive eating/healthy diet (no shaming)",
-    focus: "hunger cues, balanced choices, emotional eating, self-kindness",
-  },
-  { id: "loneliness", label: "Loneliness", focus: "disconnection, social fear, isolation, belonging needs" },
-  {
-    id: "sexual_health_education",
-    label: "Sexual health/education",
-    focus: "boundaries, consent, uncertainty, stigma, questions",
-  },
-  {
-    id: "transition_to_college",
-    label: "Transition to college",
-    focus: "identity shift, homesickness, stress, academic pressure, independence",
-  },
-];
+const REGION_LAYOUT = {
+  "North America": { x: 16, y: 28 },
+  "Latin America": { x: 25, y: 64 },
+  Europe: { x: 49, y: 25 },
+  "Eastern Europe": { x: 57, y: 28 },
+  Africa: { x: 54, y: 56 },
+  "Middle East": { x: 63, y: 39 },
+  "South Asia": { x: 71, y: 46 },
+  "Southeast Asia": { x: 80, y: 51 },
+  "East Asia": { x: 84, y: 28 },
+  Global: { x: 50, y: 80 },
+};
 
 const dom = {
   apiKeyInput: document.getElementById("apiKeyInput"),
   modelInput: document.getElementById("modelInput"),
   openrouterFileInput: document.getElementById("openrouterFileInput"),
   rememberToggle: document.getElementById("rememberToggle"),
-  topicGrid: document.getElementById("topicGrid"),
+  mainIssueGrid: document.getElementById("mainIssueGrid"),
+  regionMap: document.getElementById("regionMap"),
+  randomSelectionBtn: document.getElementById("randomSelectionBtn"),
+  selectionSummary: document.getElementById("selectionSummary"),
   generateClientBtn: document.getElementById("generateClientBtn"),
   clientPromptBox: document.getElementById("clientPromptBox"),
   traineeResponse: document.getElementById("traineeResponse"),
@@ -62,50 +37,275 @@ const dom = {
 };
 
 const state = {
-  selectedTopics: new Set(),
+  mentalBank: {},
+  issueOrder: [],
+  regionOrder: [],
+  selectedIssue: "",
+  selectedRegion: "",
+  selectedTopic: "",
+  selectedNarrative: "",
   latestClientPrompt: "",
+  isLoading: false,
 };
 
-init();
+void init();
 
-function init() {
+async function init() {
   loadConfigFromStorage();
-  renderTopicButtons();
+  bindEventListeners();
+  resetFeedback();
+  clearClientPrompt();
 
+  try {
+    await loadMentalBank();
+    renderIssueButtons();
+    renderRegionButtons();
+    updateSelectionSummary();
+    updateActionAvailability();
+    setStatus("Select a main issue to begin.", "info");
+  } catch (error) {
+    console.error(error);
+    dom.mainIssueGrid.textContent = "Scenario bank failed to load.";
+    setStatus("Could not load world_mental_bank.json. Serve the folder with a local web server and try again.", "error");
+  }
+}
+
+function bindEventListeners() {
   dom.openrouterFileInput.addEventListener("change", handleOpenRouterFile);
   dom.generateClientBtn.addEventListener("click", handleGenerateClientPrompt);
   dom.evaluateBtn.addEventListener("click", handleEvaluateReflection);
-
+  dom.randomSelectionBtn.addEventListener("click", handleRandomSelection);
   dom.apiKeyInput.addEventListener("input", maybePersistConfig);
   dom.modelInput.addEventListener("input", maybePersistConfig);
   dom.rememberToggle.addEventListener("change", maybePersistConfig);
+  dom.traineeResponse.addEventListener("input", updateActionAvailability);
 }
 
-function renderTopicButtons() {
-  dom.topicGrid.innerHTML = "";
-  TOPICS.forEach((topic) => {
+async function loadMentalBank() {
+  const response = await fetch(MENTAL_BANK_URL, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Failed to load scenario bank (${response.status}).`);
+  }
+
+  const mentalBank = await response.json();
+  state.mentalBank = mentalBank;
+  state.issueOrder = Object.keys(mentalBank);
+  state.regionOrder = buildOrderedRegionList(mentalBank);
+}
+
+function buildOrderedRegionList(mentalBank) {
+  const discovered = new Set();
+  Object.values(mentalBank).forEach((issueData) => {
+    Object.keys(issueData || {}).forEach((region) => discovered.add(region));
+  });
+
+  const preferred = Object.keys(REGION_LAYOUT).filter((region) => discovered.has(region));
+  const fallback = [...discovered]
+    .filter((region) => !REGION_LAYOUT[region])
+    .sort((left, right) => left.localeCompare(right));
+  return [...preferred, ...fallback];
+}
+
+function renderIssueButtons() {
+  dom.mainIssueGrid.innerHTML = "";
+  state.issueOrder.forEach((issueKey) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "topic-btn";
-    button.textContent = topic.label;
+    button.className = "issue-chip";
+    button.textContent = formatLabel(issueKey);
     button.setAttribute("aria-pressed", "false");
-    button.dataset.topicId = topic.id;
-    button.addEventListener("click", () => toggleTopic(topic.id, button));
-    dom.topicGrid.appendChild(button);
+    button.dataset.issueKey = issueKey;
+    button.addEventListener("click", () => handleIssueSelect(issueKey));
+    dom.mainIssueGrid.appendChild(button);
   });
 }
 
-function toggleTopic(topicId, button) {
-  if (state.selectedTopics.has(topicId)) {
-    state.selectedTopics.delete(topicId);
-    button.classList.remove("selected");
-    button.setAttribute("aria-pressed", "false");
+function renderRegionButtons() {
+  dom.regionMap.innerHTML = "";
+  state.regionOrder.forEach((region, index) => {
+    const layout = REGION_LAYOUT[region] || buildFallbackRegionLayout(index);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "region-pin";
+    button.textContent = region;
+    button.dataset.region = region;
+    button.style.setProperty("--x", `${layout.x}%`);
+    button.style.setProperty("--y", `${layout.y}%`);
+    button.addEventListener("click", () => handleRegionSelect(region));
+    dom.regionMap.appendChild(button);
+  });
+  updateRegionButtons();
+}
+
+function buildFallbackRegionLayout(index) {
+  const column = index % 4;
+  const row = Math.floor(index / 4);
+  return {
+    x: 18 + column * 20,
+    y: 82 + row * 10,
+  };
+}
+
+function handleIssueSelect(issueKey) {
+  state.selectedIssue = issueKey;
+  state.selectedRegion = "";
+  state.selectedTopic = "";
+  state.selectedNarrative = "";
+  clearScenarioOutput();
+  updateIssueButtons();
+  updateRegionButtons();
+  updateSelectionSummary();
+  updateActionAvailability();
+  setStatus(`Main issue selected: ${formatLabel(issueKey)}. Choose a region or use Random.`, "success");
+}
+
+function updateIssueButtons() {
+  const issueButtons = dom.mainIssueGrid.querySelectorAll(".issue-chip");
+  issueButtons.forEach((button) => {
+    const isActive = button.dataset.issueKey === state.selectedIssue;
+    button.classList.toggle("selected", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
+function updateRegionButtons() {
+  const availableRegions = new Set(getAvailableRegions());
+  const regionButtons = dom.regionMap.querySelectorAll(".region-pin");
+
+  regionButtons.forEach((button) => {
+    const region = button.dataset.region;
+    const isAvailable = availableRegions.has(region);
+    const isActive = region === state.selectedRegion;
+    button.disabled = !isAvailable;
+    button.classList.toggle("is-available", isAvailable);
+    button.classList.toggle("is-disabled", !isAvailable);
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+    button.title = isAvailable
+      ? `${region} is available for ${formatLabel(state.selectedIssue || "this issue")}.`
+      : `${region} is not available for the current issue.`;
+  });
+}
+
+function getAvailableRegions() {
+  if (!state.selectedIssue) return [];
+  return Object.keys(state.mentalBank[state.selectedIssue] || {});
+}
+
+function handleRegionSelect(region) {
+  if (!state.selectedIssue) {
+    setStatus("Pick a main issue before choosing a region.", "error");
     return;
   }
 
-  state.selectedTopics.add(topicId);
-  button.classList.add("selected");
-  button.setAttribute("aria-pressed", "true");
+  const regionData = state.mentalBank[state.selectedIssue]?.[region];
+  if (!regionData) {
+    setStatus(`No scenarios are available for ${region} under ${formatLabel(state.selectedIssue)}.`, "error");
+    return;
+  }
+
+  const scenario = pickRandomScenarioFromRegion(regionData);
+  applyScenarioSeed({
+    region,
+    topic: scenario.topic,
+    narrative: scenario.narrative,
+    source: "region",
+  });
+}
+
+function handleRandomSelection() {
+  if (!state.selectedIssue) {
+    setStatus("Pick a main issue first, then Random can choose across that issue's regions.", "error");
+    return;
+  }
+
+  const issueData = state.mentalBank[state.selectedIssue] || {};
+  const regionEntries = Object.entries(issueData).flatMap(([region, regionData]) =>
+    extractScenarioOptions(regionData).map((option) => ({
+      region,
+      topic: option.topic,
+      narrative: option.narrative,
+    })),
+  );
+
+  if (!regionEntries.length) {
+    setStatus("No scenario seeds are available for the selected issue.", "error");
+    return;
+  }
+
+  const selection = sample(regionEntries);
+  applyScenarioSeed({
+    region: selection.region,
+    topic: selection.topic,
+    narrative: selection.narrative,
+    source: "random",
+  });
+}
+
+function applyScenarioSeed({ region, topic, narrative, source }) {
+  state.selectedRegion = region;
+  state.selectedTopic = topic;
+  state.selectedNarrative = narrative;
+  clearScenarioOutput();
+  updateRegionButtons();
+  updateSelectionSummary();
+  updateActionAvailability();
+
+  const sourceLabel = source === "random" ? "Random scenario ready" : "Scenario ready";
+  setStatus(
+    `${sourceLabel}: ${formatLabel(state.selectedIssue)} -> ${region} -> ${formatLabel(topic)} -> ${narrative}.`,
+    "success",
+  );
+}
+
+function extractScenarioOptions(regionData) {
+  if (Array.isArray(regionData)) {
+    return regionData.map((narrative) => ({
+      topic: "general",
+      narrative,
+    }));
+  }
+
+  return Object.entries(regionData || {}).flatMap(([topic, narratives]) => {
+    if (!Array.isArray(narratives)) return [];
+    return narratives.map((narrative) => ({
+      topic,
+      narrative,
+    }));
+  });
+}
+
+function pickRandomScenarioFromRegion(regionData) {
+  const options = extractScenarioOptions(regionData);
+  if (!options.length) {
+    return {
+      topic: "general",
+      narrative: "general distress with unclear context",
+    };
+  }
+  return sample(options);
+}
+
+function updateSelectionSummary() {
+  if (!state.selectedIssue) {
+    dom.selectionSummary.textContent = "Main issue: waiting for selection\nRegion: --\nTopic: --\nNarrative: --";
+    return;
+  }
+
+  if (!state.selectedRegion) {
+    dom.selectionSummary.textContent =
+      `Main issue: ${formatLabel(state.selectedIssue)}\n` +
+      "Region: choose from the active map zones\n" +
+      "Topic: --\n" +
+      "Narrative: --";
+    return;
+  }
+
+  dom.selectionSummary.textContent =
+    `Main issue: ${formatLabel(state.selectedIssue)}\n` +
+    `Region: ${state.selectedRegion}\n` +
+    `Topic: ${formatLabel(state.selectedTopic)}\n` +
+    `Narrative: ${state.selectedNarrative}`;
 }
 
 async function handleOpenRouterFile(event) {
@@ -144,18 +344,13 @@ async function handleGenerateClientPrompt() {
     return;
   }
 
-  const selected = TOPICS.filter((topic) => state.selectedTopics.has(topic.id));
-  if (!selected.length) {
-    setStatus("Select at least one topic.", "error");
+  if (!state.selectedIssue || !state.selectedRegion || !state.selectedTopic || !state.selectedNarrative) {
+    setStatus("Pick a main issue, then choose a region or use Random before generating.", "error");
     return;
   }
 
   setLoading(true);
   setStatus("Generating simulated client prompt...", "info");
-
-  const topicSummary = selected
-    .map((topic, idx) => `${idx + 1}. ${topic.label} (focus: ${topic.focus})`)
-    .join("\n");
 
   const messages = [
     {
@@ -166,8 +361,13 @@ async function handleGenerateClientPrompt() {
     {
       role: "user",
       content:
-        `Generate one simulated client statement using these selected topics.\n${topicSummary}\n` +
+        "Generate one simulated client statement using the scenario seed below.\n" +
+        `Main issue: ${formatLabel(state.selectedIssue)}\n` +
+        `Region: ${state.selectedRegion}\n` +
+        `Context topic: ${formatLabel(state.selectedTopic)}\n` +
+        `Narrative seed: ${state.selectedNarrative}\n\n` +
         "Requirements:\n" +
+        "- Keep the regional context realistic but avoid stereotypes.\n" +
         "- Mention specific stressors and emotions.\n" +
         "- Include one tension or contradiction the trainee can reflect.\n" +
         "- Keep the prompt as one cohesive client monologue.",
@@ -186,6 +386,7 @@ async function handleGenerateClientPrompt() {
 
     state.latestClientPrompt = clientPrompt.trim();
     dom.clientPromptBox.textContent = state.latestClientPrompt;
+    updateActionAvailability();
     setStatus("Client prompt generated. Write the trainee reflection, then evaluate.", "success");
   } catch (error) {
     console.error(error);
@@ -269,6 +470,7 @@ async function handleEvaluateReflection() {
     const parsed = parseJsonFromResponse(rawFeedback);
     const feedback = normalizeFeedback(parsed);
     renderFeedback(feedback);
+    updateActionAvailability();
     setStatus("Evaluation complete.", "success");
   } catch (error) {
     console.error(error);
@@ -294,7 +496,6 @@ function normalizeFeedback(raw) {
   }
 
   const rubricExplanation = String(raw.rubric_explanation || "").trim() || "No rubric explanation provided.";
-
   const nextStep = String(raw.next_step || "").trim();
   const suggestedResponse = String(raw.suggested_response || "").trim();
   const nextAndSuggested =
@@ -315,6 +516,25 @@ function renderFeedback(feedback) {
   dom.evidenceBox.textContent = feedback.evidenceText;
   dom.explanationBox.textContent = feedback.rubricExplanation;
   dom.suggestionBox.textContent = feedback.nextAndSuggested;
+}
+
+function resetFeedback() {
+  dom.scoreValue.textContent = "-";
+  dom.scoreFill.style.width = "0%";
+  dom.evidenceBox.textContent = "No evidence yet.";
+  dom.explanationBox.textContent = "No explanation yet.";
+  dom.suggestionBox.textContent = "No next step yet.";
+}
+
+function clearScenarioOutput() {
+  clearClientPrompt();
+  resetFeedback();
+  updateActionAvailability();
+}
+
+function clearClientPrompt() {
+  state.latestClientPrompt = "";
+  dom.clientPromptBox.textContent = "No client prompt yet. Select an issue and region, then click Generate.";
 }
 
 async function callOpenRouter({ apiKey, model, messages, temperature, max_tokens, requireJson }) {
@@ -501,8 +721,22 @@ function setStatus(message, type = "info") {
 }
 
 function setLoading(isLoading) {
-  dom.generateClientBtn.disabled = isLoading;
-  dom.evaluateBtn.disabled = isLoading;
+  state.isLoading = isLoading;
+  updateActionAvailability();
+}
+
+function updateActionAvailability() {
+  const hasScenarioSeed =
+    Boolean(state.selectedIssue) &&
+    Boolean(state.selectedRegion) &&
+    Boolean(state.selectedTopic) &&
+    Boolean(state.selectedNarrative);
+  const hasTraineeText = Boolean(dom.traineeResponse.value.trim());
+  const hasRegions = getAvailableRegions().length > 0;
+
+  dom.randomSelectionBtn.disabled = state.isLoading || !state.selectedIssue || !hasRegions;
+  dom.generateClientBtn.disabled = state.isLoading || !hasScenarioSeed;
+  dom.evaluateBtn.disabled = state.isLoading || !state.latestClientPrompt || !hasTraineeText;
 }
 
 function readConfig() {
@@ -541,6 +775,16 @@ function loadConfigFromStorage() {
   } catch (error) {
     console.warn("Failed to load local config.", error);
   }
+}
+
+function formatLabel(value) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function sample(items) {
+  return items[Math.floor(Math.random() * items.length)];
 }
 
 function clamp(value, min, max) {

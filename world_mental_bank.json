@@ -1,0 +1,208 @@
+{
+    "depression": {
+      "East Asia": {
+        "academic": [
+          "failed high-stakes college entrance exam",
+          "pressure from family expectations for top university",
+          "burnout from cram school (hagwon/juku) schedule"
+        ],
+        "work": [
+          "overwork in corporate culture (996 / long hours)",
+          "lack of promotion despite loyalty",
+          "feeling stuck in hierarchical workplace"
+        ],
+        "family": [
+          "filial pressure to support parents financially",
+          "emotional suppression within family",
+          "conflict between personal goals and family duty"
+        ]
+      },
+      "North America": {
+        "work": [
+          "job loss or layoffs",
+          "lack of purpose in career",
+          "burnout from hustle culture"
+        ],
+        "college": [
+          "isolation during college transition",
+          "academic underperformance",
+          "uncertainty about career path"
+        ],
+        "social": [
+          "loneliness despite social media activity",
+          "difficulty maintaining relationships",
+          "feeling disconnected from peers"
+        ]
+      },
+      "Latin America": {
+        "family": [
+          "financial stress supporting extended family",
+          "migration-related family separation",
+          "family conflict in multigenerational households"
+        ],
+        "work": [
+          "informal employment instability",
+          "low wages despite long hours",
+          "lack of upward mobility"
+        ],
+        "community": [
+          "exposure to neighborhood violence",
+          "loss of community member",
+          "limited access to mental health care"
+        ]
+      }
+    },
+    "anxiety": {
+      "South Asia": {
+        "academic": [
+          "fear of failing competitive exams (e.g., engineering/medical)",
+          "pressure to meet family expectations",
+          "comparison with high-achieving peers"
+        ],
+        "family": [
+          "arranged marriage expectations",
+          "pressure to conform to family decisions",
+          "gender role expectations"
+        ],
+        "career": [
+          "uncertainty in job market",
+          "pressure to work abroad",
+          "fear of disappointing family"
+        ]
+      },
+      "Europe": {
+        "work": [
+          "job insecurity in economic downturn",
+          "pressure for work-life balance",
+          "performance anxiety in professional settings"
+        ],
+        "social": [
+          "integration stress for immigrants",
+          "language barriers",
+          "social isolation in urban areas"
+        ],
+        "health": [
+          "health-related anxiety",
+          "fear of public healthcare delays",
+          "pandemic-related stress"
+        ]
+      },
+      "Middle East": {
+        "political": [
+          "uncertainty due to regional instability",
+          "fear from conflict exposure",
+          "restricted mobility or opportunities"
+        ],
+        "family": [
+          "pressure to meet cultural expectations",
+          "reputation concerns",
+          "intergenerational conflict"
+        ],
+        "education": [
+          "limited access to quality education",
+          "pressure to succeed abroad",
+          "uncertain academic future"
+        ]
+      }
+    },
+    "stress": {
+      "Southeast Asia": {
+        "work": [
+          "long working hours in service industry",
+          "job insecurity in gig economy",
+          "balancing multiple jobs"
+        ],
+        "family": [
+          "supporting family financially at young age",
+          "urban migration away from family",
+          "caregiving responsibilities"
+        ],
+        "education": [
+          "limited access to higher education",
+          "competition for scholarships",
+          "language barriers in education"
+        ]
+      },
+      "Africa": {
+        "economic": [
+          "financial instability",
+          "unemployment",
+          "lack of access to basic resources"
+        ],
+        "health": [
+          "limited access to healthcare",
+          "stress from chronic illness in family",
+          "public health crises"
+        ],
+        "education": [
+          "limited schooling opportunities",
+          "pressure to leave school for work",
+          "resource constraints in schools"
+        ]
+      }
+    },
+    "trauma": {
+      "Global": {
+        "conflict": [
+          "exposure to war or violence",
+          "displacement or refugee experience",
+          "loss of home or community"
+        ],
+        "family": [
+          "childhood abuse or neglect",
+          "domestic violence",
+          "loss of caregiver"
+        ],
+        "accident": [
+          "serious car accident",
+          "natural disaster experience",
+          "sudden loss of loved one"
+        ]
+      }
+    },
+    "substance_use": {
+      "North America": {
+        "work": [
+          "using alcohol to cope with job stress",
+          "burnout leading to substance reliance",
+          "workplace drinking culture"
+        ],
+        "social": [
+          "peer pressure in college drinking culture",
+          "using substances to manage loneliness",
+          "party culture normalization"
+        ]
+      },
+      "Eastern Europe": {
+        "economic": [
+          "alcohol use linked to unemployment",
+          "coping with economic hardship",
+          "limited access to support services"
+        ],
+        "cultural": [
+          "normalized heavy drinking in social settings",
+          "family history of substance use",
+          "lack of stigma around alcohol abuse"
+        ]
+      }
+    },
+    "relationship_issues": {
+      "Global": {
+        "romantic": [
+          "breakup or divorce",
+          "lack of communication in relationship",
+          "infidelity concerns"
+        ],
+        "family": [
+          "parent-child conflict",
+          "caregiving burden",
+          "boundary issues"
+        ],
+        "social": [
+          "difficulty forming friendships",
+          "feeling excluded",
+          "conflict with peers"
+        ]
+      }
+    }
+  }
