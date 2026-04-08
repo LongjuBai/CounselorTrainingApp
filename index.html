@@ -18,8 +18,8 @@
         <p class="kicker">Counselor Training Platform</p>
         <h1>Reflection Training Lab</h1>
         <p class="hero-copy">
-          Practice reflection skills by responding to simulated client prompts, then receive structured
-          feedback with a 0-1 score and evidence-based coaching.
+          Build a patient persona, hold a short multi-turn counseling conversation, then review rubric-based
+          feedback across multiple counseling skills.
         </p>
       </header>
 
@@ -57,87 +57,210 @@
       </details>
 
       <section class="panel">
-        <h2>1. Simulate Client</h2>
+        <h2>1. Client Profile Builder</h2>
         <p class="muted">
-          Pick a main issue first, then click a world region to silently draw a topic and narrative from the
-          scenario bank.
+          Define the presenting concern, region-specific context, and persona details before opening the
+          conversation.
         </p>
-        <div id="mainIssueGrid" class="issue-grid" aria-label="Main issue selector"></div>
-        <div class="simulator-layout">
-          <div class="map-panel">
-            <div class="map-header">
-              <div>
-                <h3>Regional Context Map</h3>
-                <p class="muted small">
-                  Only regions available for the selected issue are active. Clicking a region auto-selects a
-                  topic and narrative seed.
-                </p>
+        <div class="builder-layout">
+          <div class="builder-main">
+            <section class="builder-block">
+              <h3>Concern and Regional Context</h3>
+              <p class="muted small">
+                Choose a main issue first, then click an active region to silently draw a context topic and
+                narrative seed from the scenario bank.
+              </p>
+              <div id="mainIssueGrid" class="issue-grid" aria-label="Main issue selector"></div>
+              <div class="scenario-layout">
+                <div class="map-panel">
+                  <div class="map-header">
+                    <div>
+                      <h3>Context Map</h3>
+                      <p class="muted small">
+                        Only regions available for the selected issue are active. Random will draw across all
+                        eligible regions for that issue.
+                      </p>
+                    </div>
+                    <button id="randomSelectionBtn" class="btn btn-ghost" type="button">Random Region + Narrative</button>
+                  </div>
+                  <div class="world-map-shell">
+                    <svg class="world-map-art" viewBox="0 0 1000 540" aria-hidden="true">
+                      <ellipse class="continent continent-a" cx="185" cy="165" rx="140" ry="95"></ellipse>
+                      <ellipse class="continent continent-b" cx="255" cy="340" rx="82" ry="132" transform="rotate(14 255 340)"></ellipse>
+                      <ellipse class="continent continent-c" cx="505" cy="160" rx="92" ry="68"></ellipse>
+                      <ellipse class="continent continent-d" cx="572" cy="283" rx="78" ry="126" transform="rotate(8 572 283)"></ellipse>
+                      <ellipse class="continent continent-e" cx="708" cy="212" rx="168" ry="96"></ellipse>
+                      <ellipse class="continent continent-f" cx="852" cy="348" rx="90" ry="54"></ellipse>
+                    </svg>
+                    <div id="regionMap" class="region-map-hotspots" aria-label="World region selector"></div>
+                  </div>
+                </div>
+                <aside class="selection-card">
+                  <h3>Scenario Seed</h3>
+                  <p id="selectionSummary" class="selection-summary">No issue selected yet.</p>
+                </aside>
               </div>
-              <button id="randomSelectionBtn" class="btn btn-ghost" type="button">Random Region + Narrative</button>
-            </div>
-            <div class="world-map-shell">
-              <svg class="world-map-art" viewBox="0 0 1000 540" aria-hidden="true">
-                <ellipse class="continent continent-a" cx="185" cy="165" rx="140" ry="95"></ellipse>
-                <ellipse class="continent continent-b" cx="255" cy="340" rx="82" ry="132" transform="rotate(14 255 340)"></ellipse>
-                <ellipse class="continent continent-c" cx="505" cy="160" rx="92" ry="68"></ellipse>
-                <ellipse class="continent continent-d" cx="572" cy="283" rx="78" ry="126" transform="rotate(8 572 283)"></ellipse>
-                <ellipse class="continent continent-e" cx="708" cy="212" rx="168" ry="96"></ellipse>
-                <ellipse class="continent continent-f" cx="852" cy="348" rx="90" ry="54"></ellipse>
-              </svg>
-              <div id="regionMap" class="region-map-hotspots" aria-label="World region selector"></div>
-            </div>
-          </div>
-          <aside class="selection-card">
-            <h3>Selected Scenario Seed</h3>
-            <p id="selectionSummary" class="selection-summary">No issue selected yet.</p>
-          </aside>
-        </div>
-        <button id="generateClientBtn" class="btn btn-primary">Generate Simulated Client Prompt</button>
+            </section>
 
-        <h3>Generated Client Prompt</h3>
-        <div id="clientPromptBox" class="output-box">
-          No client prompt yet. Select an issue and region, then click Generate.
+            <section class="builder-block">
+              <h3>Persona Details</h3>
+              <div class="profile-grid">
+                <label>
+                  Gender
+                  <select id="genderSelect">
+                    <option value="unspecified">Unspecified</option>
+                    <option value="woman">Woman</option>
+                    <option value="man">Man</option>
+                    <option value="nonbinary">Nonbinary</option>
+                    <option value="questioning">Questioning</option>
+                  </select>
+                </label>
+                <label>
+                  Age
+                  <input id="ageInput" type="number" min="12" max="99" placeholder="e.g. 22" />
+                </label>
+                <label>
+                  Occupation
+                  <input id="occupationInput" type="text" placeholder="e.g. graduate student" />
+                </label>
+                <label>
+                  Severity
+                  <select id="severitySelect">
+                    <option value="mild">Mild</option>
+                    <option value="moderate" selected>Moderate</option>
+                    <option value="severe">Severe</option>
+                  </select>
+                </label>
+                <label class="span-2">
+                  Event
+                  <input id="eventInput" type="text" placeholder="e.g. breakup, insomnia, conflict at work" />
+                </label>
+                <label class="span-2">
+                  Goal
+                  <input id="goalInput" type="text" placeholder="e.g. improved sleep, reduced loneliness" />
+                </label>
+                <label class="span-2">
+                  Additional Profile Notes
+                  <textarea
+                    id="additionalDetailsInput"
+                    rows="4"
+                    placeholder="Add any custom background, personality, stressors, culture, identity, or behavior details you want the patient to have."
+                  ></textarea>
+                </label>
+              </div>
+            </section>
+          </div>
+
+          <aside class="persona-card">
+            <h3>Persona Snapshot</h3>
+            <p id="personaSummary" class="selection-summary">
+              Complete the builder to preview the draft patient persona.
+            </p>
+            <button id="startConversationBtn" class="btn btn-primary" type="button">Start Patient Conversation</button>
+          </aside>
         </div>
       </section>
 
       <section class="panel">
-        <h2>2. Trainee Reflection</h2>
-        <label for="traineeResponse" class="muted">
-          Write your reflective response to the client prompt.
-        </label>
-        <textarea
-          id="traineeResponse"
-          rows="7"
-          placeholder="Type the counselor trainee response here..."
-        ></textarea>
-        <button id="evaluateBtn" class="btn btn-secondary">Evaluate Reflection</button>
+        <h2>2. Simulated Patient Chat</h2>
+        <p class="muted">
+          Hold a short multi-turn conversation with the simulated patient. When you are done, end the
+          conversation and start evaluation.
+        </p>
+        <div class="chat-panel">
+          <p id="conversationStatus" class="muted small chat-status">
+            No active patient conversation yet. Build a profile and click Start Patient Conversation.
+          </p>
+          <div id="chatTranscript" class="chat-transcript" aria-live="polite">
+            <div class="chat-empty">No conversation yet.</div>
+          </div>
+          <div class="chat-composer">
+            <textarea
+              id="chatInput"
+              rows="3"
+              placeholder="Type your counselor message here..."
+            ></textarea>
+            <button id="sendMessageBtn" class="btn btn-secondary" type="button">Send Message</button>
+          </div>
+          <div class="chat-actions">
+            <button id="endConversationBtn" class="btn btn-outline" type="button">End Conversation</button>
+            <button id="startEvaluationBtn" class="btn btn-primary" type="button">Start Evaluation</button>
+          </div>
+        </div>
       </section>
 
       <section class="panel">
         <div class="feedback-header">
           <h2>Feedback</h2>
-          <p class="muted">Four required parts from the evaluation prompt.</p>
+          <p class="muted">
+            Review the quality classification, rubric details with evidence, and suggestions across four
+            counseling angles.
+          </p>
         </div>
-        <div class="feedback-grid">
-          <article class="feedback-card">
-            <h3>1) Score (0-1)</h3>
-            <p id="scoreValue" class="score-value">-</p>
-            <div class="score-track" aria-hidden="true">
-              <div id="scoreFill" class="score-fill"></div>
-            </div>
-          </article>
-          <article class="feedback-card">
-            <h3>2) Evidence Slices</h3>
-            <p id="evidenceBox" class="feedback-text">No evidence yet.</p>
-          </article>
-          <article class="feedback-card">
-            <h3>3) Rubric Explanation</h3>
-            <p id="explanationBox" class="feedback-text">No explanation yet.</p>
-          </article>
-          <article class="feedback-card">
-            <h3>4) Next Step + Suggested Response</h3>
-            <p id="suggestionBox" class="feedback-text">No next step yet.</p>
-          </article>
+
+        <div class="feedback-stack">
+          <div class="feedback-row">
+            <article class="feedback-card angle-card">
+              <h3>Empathy</h3>
+              <p id="empathyQuality" class="quality-chip level-neutral">Not evaluated</p>
+              <p id="empathySummary" class="feedback-text">Start an evaluation to see the quality classification.</p>
+            </article>
+            <article class="feedback-card angle-card">
+              <h3>Reflection</h3>
+              <p id="reflectionQuality" class="quality-chip level-neutral">Not evaluated</p>
+              <p id="reflectionSummary" class="feedback-text">Start an evaluation to see the quality classification.</p>
+            </article>
+            <article class="feedback-card angle-card">
+              <h3>Open-Ended Questions</h3>
+              <p id="openQuestionsQuality" class="quality-chip level-neutral">Not evaluated</p>
+              <p id="openQuestionsSummary" class="feedback-text">
+                Start an evaluation to see the quality classification.
+              </p>
+            </article>
+            <article class="feedback-card angle-card">
+              <h3>Affirmations</h3>
+              <p id="affirmationsQuality" class="quality-chip level-neutral">Not evaluated</p>
+              <p id="affirmationsSummary" class="feedback-text">Start an evaluation to see the quality classification.</p>
+            </article>
+          </div>
+
+          <div class="feedback-row details-row">
+            <details class="feedback-card rubric-card">
+              <summary>Empathy Rubric Details</summary>
+              <div id="empathyRubrics" class="rubric-list">No rubric details yet.</div>
+            </details>
+            <details class="feedback-card rubric-card">
+              <summary>Reflection Rubric Details</summary>
+              <div id="reflectionRubrics" class="rubric-list">No rubric details yet.</div>
+            </details>
+            <details class="feedback-card rubric-card">
+              <summary>Open-Ended Questions Rubric Details</summary>
+              <div id="openQuestionsRubrics" class="rubric-list">No rubric details yet.</div>
+            </details>
+            <details class="feedback-card rubric-card">
+              <summary>Affirmations Rubric Details</summary>
+              <div id="affirmationsRubrics" class="rubric-list">No rubric details yet.</div>
+            </details>
+          </div>
+
+          <div class="feedback-row">
+            <article class="feedback-card angle-card">
+              <h3>Empathy Suggestions</h3>
+              <p id="empathySuggestion" class="feedback-text">No suggestions yet.</p>
+            </article>
+            <article class="feedback-card angle-card">
+              <h3>Reflection Suggestions</h3>
+              <p id="reflectionSuggestion" class="feedback-text">No suggestions yet.</p>
+            </article>
+            <article class="feedback-card angle-card">
+              <h3>Open-Ended Questions Suggestions</h3>
+              <p id="openQuestionsSuggestion" class="feedback-text">No suggestions yet.</p>
+            </article>
+            <article class="feedback-card angle-card">
+              <h3>Affirmations Suggestions</h3>
+              <p id="affirmationsSuggestion" class="feedback-text">No suggestions yet.</p>
+            </article>
+          </div>
         </div>
       </section>
 

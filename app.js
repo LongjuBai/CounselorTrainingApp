@@ -15,6 +15,37 @@ const REGION_LAYOUT = {
   Global: { x: 50, y: 80 },
 };
 
+const ANGLE_CONFIG = {
+  empathy: {
+    label: "Empathy",
+    qualityId: "empathyQuality",
+    summaryId: "empathySummary",
+    rubricsId: "empathyRubrics",
+    suggestionId: "empathySuggestion",
+  },
+  reflection: {
+    label: "Reflection",
+    qualityId: "reflectionQuality",
+    summaryId: "reflectionSummary",
+    rubricsId: "reflectionRubrics",
+    suggestionId: "reflectionSuggestion",
+  },
+  open_ended_questions: {
+    label: "Open-Ended Questions",
+    qualityId: "openQuestionsQuality",
+    summaryId: "openQuestionsSummary",
+    rubricsId: "openQuestionsRubrics",
+    suggestionId: "openQuestionsSuggestion",
+  },
+  affirmations: {
+    label: "Affirmations",
+    qualityId: "affirmationsQuality",
+    summaryId: "affirmationsSummary",
+    rubricsId: "affirmationsRubrics",
+    suggestionId: "affirmationsSuggestion",
+  },
+};
+
 const dom = {
   apiKeyInput: document.getElementById("apiKeyInput"),
   modelInput: document.getElementById("modelInput"),
@@ -24,17 +55,35 @@ const dom = {
   regionMap: document.getElementById("regionMap"),
   randomSelectionBtn: document.getElementById("randomSelectionBtn"),
   selectionSummary: document.getElementById("selectionSummary"),
-  generateClientBtn: document.getElementById("generateClientBtn"),
-  clientPromptBox: document.getElementById("clientPromptBox"),
-  traineeResponse: document.getElementById("traineeResponse"),
-  evaluateBtn: document.getElementById("evaluateBtn"),
-  scoreValue: document.getElementById("scoreValue"),
-  scoreFill: document.getElementById("scoreFill"),
-  evidenceBox: document.getElementById("evidenceBox"),
-  explanationBox: document.getElementById("explanationBox"),
-  suggestionBox: document.getElementById("suggestionBox"),
+  genderSelect: document.getElementById("genderSelect"),
+  ageInput: document.getElementById("ageInput"),
+  occupationInput: document.getElementById("occupationInput"),
+  severitySelect: document.getElementById("severitySelect"),
+  eventInput: document.getElementById("eventInput"),
+  goalInput: document.getElementById("goalInput"),
+  additionalDetailsInput: document.getElementById("additionalDetailsInput"),
+  personaSummary: document.getElementById("personaSummary"),
+  startConversationBtn: document.getElementById("startConversationBtn"),
+  conversationStatus: document.getElementById("conversationStatus"),
+  chatTranscript: document.getElementById("chatTranscript"),
+  chatInput: document.getElementById("chatInput"),
+  sendMessageBtn: document.getElementById("sendMessageBtn"),
+  endConversationBtn: document.getElementById("endConversationBtn"),
+  startEvaluationBtn: document.getElementById("startEvaluationBtn"),
   statusBox: document.getElementById("statusBox"),
 };
+
+const feedbackDom = Object.fromEntries(
+  Object.entries(ANGLE_CONFIG).map(([key, config]) => [
+    key,
+    {
+      quality: document.getElementById(config.qualityId),
+      summary: document.getElementById(config.summaryId),
+      rubrics: document.getElementById(config.rubricsId),
+      suggestion: document.getElementById(config.suggestionId),
+    },
+  ]),
+);
 
 const state = {
   mentalBank: {},
@@ -44,7 +93,11 @@ const state = {
   selectedRegion: "",
   selectedTopic: "",
   selectedNarrative: "",
-  latestClientPrompt: "",
+  conversation: [],
+  conversationStarted: false,
+  conversationEnded: false,
+  activeProfile: null,
+  patientSystemPrompt: "",
   isLoading: false,
 };
 
@@ -54,15 +107,16 @@ async function init() {
   loadConfigFromStorage();
   bindEventListeners();
   resetFeedback();
-  clearClientPrompt();
+  renderDraftSummaries();
+  renderConversationStatus();
+  renderChatTranscript();
 
   try {
     await loadMentalBank();
     renderIssueButtons();
     renderRegionButtons();
-    updateSelectionSummary();
     updateActionAvailability();
-    setStatus("Select a main issue to begin.", "info");
+    setStatus("Set the concern, region, and profile details, then start the conversation.", "info");
   } catch (error) {
     console.error(error);
     dom.mainIssueGrid.textContent = "Scenario bank failed to load.";
@@ -72,13 +126,33 @@ async function init() {
 
 function bindEventListeners() {
   dom.openrouterFileInput.addEventListener("change", handleOpenRouterFile);
-  dom.generateClientBtn.addEventListener("click", handleGenerateClientPrompt);
-  dom.evaluateBtn.addEventListener("click", handleEvaluateReflection);
   dom.randomSelectionBtn.addEventListener("click", handleRandomSelection);
+  dom.startConversationBtn.addEventListener("click", handleStartConversation);
+  dom.sendMessageBtn.addEventListener("click", handleSendMessage);
+  dom.endConversationBtn.addEventListener("click", handleEndConversation);
+  dom.startEvaluationBtn.addEventListener("click", handleStartEvaluation);
   dom.apiKeyInput.addEventListener("input", maybePersistConfig);
   dom.modelInput.addEventListener("input", maybePersistConfig);
   dom.rememberToggle.addEventListener("change", maybePersistConfig);
-  dom.traineeResponse.addEventListener("input", updateActionAvailability);
+  dom.chatInput.addEventListener("input", updateActionAvailability);
+
+  [
+    dom.genderSelect,
+    dom.ageInput,
+    dom.occupationInput,
+    dom.severitySelect,
+    dom.eventInput,
+    dom.goalInput,
+    dom.additionalDetailsInput,
+  ].forEach((element) => {
+    element.addEventListener("input", handleProfileDraftChange);
+    element.addEventListener("change", handleProfileDraftChange);
+  });
+}
+
+function handleProfileDraftChange() {
+  renderDraftSummaries();
+  updateActionAvailability();
 }
 
 async function loadMentalBank() {
@@ -103,6 +177,7 @@ function buildOrderedRegionList(mentalBank) {
   const fallback = [...discovered]
     .filter((region) => !REGION_LAYOUT[region])
     .sort((left, right) => left.localeCompare(right));
+
   return [...preferred, ...fallback];
 }
 
@@ -151,45 +226,11 @@ function handleIssueSelect(issueKey) {
   state.selectedRegion = "";
   state.selectedTopic = "";
   state.selectedNarrative = "";
-  clearScenarioOutput();
   updateIssueButtons();
   updateRegionButtons();
-  updateSelectionSummary();
+  renderDraftSummaries();
   updateActionAvailability();
   setStatus(`Main issue selected: ${formatLabel(issueKey)}. Choose a region or use Random.`, "success");
-}
-
-function updateIssueButtons() {
-  const issueButtons = dom.mainIssueGrid.querySelectorAll(".issue-chip");
-  issueButtons.forEach((button) => {
-    const isActive = button.dataset.issueKey === state.selectedIssue;
-    button.classList.toggle("selected", isActive);
-    button.setAttribute("aria-pressed", String(isActive));
-  });
-}
-
-function updateRegionButtons() {
-  const availableRegions = new Set(getAvailableRegions());
-  const regionButtons = dom.regionMap.querySelectorAll(".region-pin");
-
-  regionButtons.forEach((button) => {
-    const region = button.dataset.region;
-    const isAvailable = availableRegions.has(region);
-    const isActive = region === state.selectedRegion;
-    button.disabled = !isAvailable;
-    button.classList.toggle("is-available", isAvailable);
-    button.classList.toggle("is-disabled", !isAvailable);
-    button.classList.toggle("is-active", isActive);
-    button.setAttribute("aria-pressed", String(isActive));
-    button.title = isAvailable
-      ? `${region} is available for ${formatLabel(state.selectedIssue || "this issue")}.`
-      : `${region} is not available for the current issue.`;
-  });
-}
-
-function getAvailableRegions() {
-  if (!state.selectedIssue) return [];
-  return Object.keys(state.mentalBank[state.selectedIssue] || {});
 }
 
 function handleRegionSelect(region) {
@@ -205,12 +246,7 @@ function handleRegionSelect(region) {
   }
 
   const scenario = pickRandomScenarioFromRegion(regionData);
-  applyScenarioSeed({
-    region,
-    topic: scenario.topic,
-    narrative: scenario.narrative,
-    source: "region",
-  });
+  applyScenarioSeed(region, scenario.topic, scenario.narrative, "region");
 }
 
 function handleRandomSelection() {
@@ -234,21 +270,16 @@ function handleRandomSelection() {
   }
 
   const selection = sample(regionEntries);
-  applyScenarioSeed({
-    region: selection.region,
-    topic: selection.topic,
-    narrative: selection.narrative,
-    source: "random",
-  });
+  applyScenarioSeed(selection.region, selection.topic, selection.narrative, "random");
 }
 
-function applyScenarioSeed({ region, topic, narrative, source }) {
+function applyScenarioSeed(region, topic, narrative, source) {
   state.selectedRegion = region;
   state.selectedTopic = topic;
   state.selectedNarrative = narrative;
-  clearScenarioOutput();
+  dom.eventInput.value = narrative;
   updateRegionButtons();
-  updateSelectionSummary();
+  renderDraftSummaries();
   updateActionAvailability();
 
   const sourceLabel = source === "random" ? "Random scenario ready" : "Scenario ready";
@@ -286,26 +317,104 @@ function pickRandomScenarioFromRegion(regionData) {
   return sample(options);
 }
 
-function updateSelectionSummary() {
-  if (!state.selectedIssue) {
-    dom.selectionSummary.textContent = "Main issue: waiting for selection\nRegion: --\nTopic: --\nNarrative: --";
-    return;
+function updateIssueButtons() {
+  const issueButtons = dom.mainIssueGrid.querySelectorAll(".issue-chip");
+  issueButtons.forEach((button) => {
+    const isActive = button.dataset.issueKey === state.selectedIssue;
+    button.classList.toggle("selected", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
+function updateRegionButtons() {
+  const availableRegions = new Set(getAvailableRegions());
+  const regionButtons = dom.regionMap.querySelectorAll(".region-pin");
+
+  regionButtons.forEach((button) => {
+    const region = button.dataset.region;
+    const isAvailable = availableRegions.has(region);
+    const isActive = region === state.selectedRegion;
+    button.disabled = !isAvailable;
+    button.classList.toggle("is-disabled", !isAvailable);
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
+function getAvailableRegions() {
+  if (!state.selectedIssue) return [];
+  return Object.keys(state.mentalBank[state.selectedIssue] || {});
+}
+
+function buildDraftProfile() {
+  return {
+    issue: state.selectedIssue,
+    region: state.selectedRegion,
+    topic: state.selectedTopic,
+    narrative: state.selectedNarrative,
+    gender: dom.genderSelect.value.trim() || "unspecified",
+    age: dom.ageInput.value.trim() || "unspecified",
+    occupation: dom.occupationInput.value.trim() || "unspecified",
+    severity: dom.severitySelect.value.trim() || "moderate",
+    event: dom.eventInput.value.trim() || state.selectedNarrative || "",
+    goal: dom.goalInput.value.trim(),
+    additionalDetails: dom.additionalDetailsInput.value.trim(),
+  };
+}
+
+function normalizeProfileForConversation(profile) {
+  return {
+    ...profile,
+    event: profile.event || "ongoing emotional strain",
+    goal: profile.goal || "better coping and emotional clarity",
+  };
+}
+
+function renderDraftSummaries() {
+  const profile = buildDraftProfile();
+  dom.selectionSummary.textContent = formatScenarioSeedSummary(profile);
+  dom.personaSummary.textContent = formatPersonaSummary(profile);
+}
+
+function formatScenarioSeedSummary(profile) {
+  if (!profile.issue) {
+    return "Main issue: waiting for selection\nRegion: --\nTopic: --\nNarrative: --";
   }
 
-  if (!state.selectedRegion) {
-    dom.selectionSummary.textContent =
-      `Main issue: ${formatLabel(state.selectedIssue)}\n` +
-      "Region: choose from the active map zones\n" +
-      "Topic: --\n" +
-      "Narrative: --";
-    return;
+  if (!profile.region) {
+    return `Main issue: ${formatLabel(profile.issue)}\nRegion: choose from the active map zones\nTopic: --\nNarrative: --`;
   }
 
-  dom.selectionSummary.textContent =
-    `Main issue: ${formatLabel(state.selectedIssue)}\n` +
-    `Region: ${state.selectedRegion}\n` +
-    `Topic: ${formatLabel(state.selectedTopic)}\n` +
-    `Narrative: ${state.selectedNarrative}`;
+  return (
+    `Main issue: ${formatLabel(profile.issue)}\n` +
+    `Region: ${profile.region}\n` +
+    `Topic: ${formatLabel(profile.topic)}\n` +
+    `Narrative: ${profile.narrative}`
+  );
+}
+
+function formatPersonaSummary(profile) {
+  const issueText = profile.issue ? formatLabel(profile.issue) : "waiting for concern selection";
+  const regionText = profile.region || "waiting for region selection";
+  const topicText = profile.topic ? formatLabel(profile.topic) : "waiting for topic seed";
+
+  return (
+    `Concern: ${issueText}\n` +
+    `Region: ${regionText}\n` +
+    `Topic seed: ${topicText}\n` +
+    `Gender: ${formatOptionalValue(profile.gender, true)}\n` +
+    `Age: ${formatOptionalValue(profile.age)}\n` +
+    `Occupation: ${formatOptionalValue(profile.occupation)}\n` +
+    `Severity: ${formatOptionalValue(profile.severity, true)}\n` +
+    `Event: ${formatOptionalValue(profile.event)}\n` +
+    `Goal: ${formatOptionalValue(profile.goal)}\n` +
+    `Additional notes: ${formatOptionalValue(profile.additionalDetails)}`
+  );
+}
+
+function formatOptionalValue(value, alreadyHumanized = false) {
+  if (!value || value === "unspecified") return "Unspecified";
+  return alreadyHumanized ? formatSentence(value) : value;
 }
 
 async function handleOpenRouterFile(event) {
@@ -337,7 +446,7 @@ function parseOpenRouterText(rawText) {
   };
 }
 
-async function handleGenerateClientPrompt() {
+async function handleStartConversation() {
   const config = readConfig();
   if (!config.apiKey || !config.model) {
     setStatus("Please enter API key and model first.", "error");
@@ -345,115 +454,256 @@ async function handleGenerateClientPrompt() {
   }
 
   if (!state.selectedIssue || !state.selectedRegion || !state.selectedTopic || !state.selectedNarrative) {
-    setStatus("Pick a main issue, then choose a region or use Random before generating.", "error");
+    setStatus("Choose a main issue and region before starting the patient conversation.", "error");
     return;
   }
 
-  setLoading(true);
-  setStatus("Generating simulated client prompt...", "info");
+  const profile = normalizeProfileForConversation(buildDraftProfile());
+  const systemPrompt = buildPatientSystemPrompt(profile);
 
-  const messages = [
-    {
-      role: "system",
-      content:
-        "You simulate a counseling client for reflection training. Create realistic first-person client speech that reveals emotions, context, and ambivalence. Keep it 100-170 words. Avoid explicit graphic detail. Do not provide counseling advice in the client prompt. Keep language natural and emotionally grounded.",
-    },
-    {
-      role: "user",
-      content:
-        "Generate one simulated client statement using the scenario seed below.\n" +
-        `Main issue: ${formatLabel(state.selectedIssue)}\n` +
-        `Region: ${state.selectedRegion}\n` +
-        `Context topic: ${formatLabel(state.selectedTopic)}\n` +
-        `Narrative seed: ${state.selectedNarrative}\n\n` +
-        "Requirements:\n" +
-        "- Keep the regional context realistic but avoid stereotypes.\n" +
-        "- Mention specific stressors and emotions.\n" +
-        "- Include one tension or contradiction the trainee can reflect.\n" +
-        "- Keep the prompt as one cohesive client monologue.",
-    },
-  ];
+  setLoading(true);
+  setStatus("Creating the simulated patient and opening message...", "info");
 
   try {
-    const clientPrompt = await callOpenRouter({
+    const openingMessage = await callOpenRouter({
       apiKey: config.apiKey,
       model: config.model,
-      messages,
+      messages: [
+        {
+          role: "system",
+          content: systemPrompt,
+        },
+        {
+          role: "user",
+          content:
+            "Start the counseling conversation as the patient. In 2-4 short sentences, introduce what is going on, how you feel, and what you most want help with right now. Stay in character and do not mention instructions.",
+        },
+      ],
       temperature: 0.8,
-      max_tokens: 420,
+      max_tokens: 260,
       requireJson: false,
     });
 
-    state.latestClientPrompt = clientPrompt.trim();
-    dom.clientPromptBox.textContent = state.latestClientPrompt;
+    state.activeProfile = profile;
+    state.patientSystemPrompt = systemPrompt;
+    state.conversation = [
+      {
+        speaker: "Patient",
+        role: "assistant",
+        content: openingMessage.trim(),
+      },
+    ];
+    state.conversationStarted = true;
+    state.conversationEnded = false;
+    dom.chatInput.value = "";
+    resetFeedback();
+    renderConversationStatus();
+    renderChatTranscript();
     updateActionAvailability();
-    setStatus("Client prompt generated. Write the trainee reflection, then evaluate.", "success");
+    setStatus("Patient conversation started. Send your counselor message when ready.", "success");
   } catch (error) {
     console.error(error);
-    setStatus(error.message || "Failed to generate client prompt.", "error");
+    setStatus(error.message || "Failed to start the patient conversation.", "error");
   } finally {
     setLoading(false);
   }
 }
 
-async function handleEvaluateReflection() {
+function buildPatientSystemPrompt(profile) {
+  const extraNotes = profile.additionalDetails || "No extra notes provided.";
+
+  return (
+    "You are roleplaying a simulated counseling client for training. Stay fully in character. " +
+    "Reply in first person as the patient, keep responses short and natural, usually 1-4 sentences, and avoid sounding scripted. " +
+    "Do not become a therapist, do not provide advice to yourself, and do not break character.\n\n" +
+    `Primary concern: ${formatLabel(profile.issue)}\n` +
+    `Region: ${profile.region}\n` +
+    `Context topic: ${formatLabel(profile.topic)}\n` +
+    `Narrative seed: ${profile.narrative}\n` +
+    `Gender: ${profile.gender}\n` +
+    `Age: ${profile.age}\n` +
+    `Occupation: ${profile.occupation}\n` +
+    `Severity: ${profile.severity}\n` +
+    `Event: ${profile.event}\n` +
+    `Goal: ${profile.goal}\n` +
+    `Additional notes: ${extraNotes}\n\n` +
+    "Conversation style rules:\n" +
+    "- Reveal emotions, stressors, and ambivalence naturally.\n" +
+    "- Be consistent with the profile.\n" +
+    "- Do not solve the issue quickly.\n" +
+    "- If the counselor asks a question, answer as the patient.\n" +
+    "- If the counselor reflects, respond as a patient would in a real short chat.\n" +
+    "- Avoid long monologues."
+  );
+}
+
+async function handleSendMessage() {
   const config = readConfig();
   if (!config.apiKey || !config.model) {
     setStatus("Please enter API key and model first.", "error");
     return;
   }
 
-  if (!state.latestClientPrompt) {
-    setStatus("Generate a client prompt before evaluation.", "error");
+  if (!state.conversationStarted) {
+    setStatus("Start a patient conversation first.", "error");
     return;
   }
 
-  const traineeText = dom.traineeResponse.value.trim();
-  if (!traineeText) {
-    setStatus("Please enter a trainee response.", "error");
+  if (state.conversationEnded) {
+    setStatus("The conversation has ended. Start a new conversation to continue chatting.", "error");
+    return;
+  }
+
+  const counselorMessage = dom.chatInput.value.trim();
+  if (!counselorMessage) {
+    setStatus("Type a counselor message before sending.", "error");
+    return;
+  }
+
+  state.conversation.push({
+    speaker: "Counselor",
+    role: "user",
+    content: counselorMessage,
+  });
+  dom.chatInput.value = "";
+  renderChatTranscript();
+  updateActionAvailability();
+  setLoading(true);
+  setStatus("Patient is replying...", "info");
+
+  try {
+    const patientReply = await callOpenRouter({
+      apiKey: config.apiKey,
+      model: config.model,
+      messages: buildConversationMessages(),
+      temperature: 0.8,
+      max_tokens: 260,
+      requireJson: false,
+    });
+
+    state.conversation.push({
+      speaker: "Patient",
+      role: "assistant",
+      content: patientReply.trim(),
+    });
+    renderChatTranscript();
+    updateActionAvailability();
+    setStatus("Patient replied. Continue the conversation or end it when ready.", "success");
+  } catch (error) {
+    console.error(error);
+    setStatus(error.message || "Failed to generate the patient reply.", "error");
+  } finally {
+    setLoading(false);
+  }
+}
+
+function buildConversationMessages() {
+  const history = state.conversation.slice(-12).map((turn) => ({
+    role: turn.role,
+    content: turn.content,
+  }));
+
+  return [
+    {
+      role: "system",
+      content: state.patientSystemPrompt,
+    },
+    ...history,
+  ];
+}
+
+function handleEndConversation() {
+  if (!state.conversationStarted) {
+    setStatus("There is no conversation to end yet.", "error");
+    return;
+  }
+
+  if (state.conversationEnded) {
+    setStatus("The conversation is already ended. You can start evaluation now.", "success");
+    return;
+  }
+
+  state.conversationEnded = true;
+  renderConversationStatus();
+  updateActionAvailability();
+  setStatus("Conversation ended. Start evaluation when you are ready.", "success");
+}
+
+async function handleStartEvaluation() {
+  const config = readConfig();
+  if (!config.apiKey || !config.model) {
+    setStatus("Please enter API key and model first.", "error");
+    return;
+  }
+
+  if (!state.conversationStarted) {
+    setStatus("Start a conversation before evaluating.", "error");
+    return;
+  }
+
+  if (!state.conversationEnded) {
+    setStatus("End the conversation before starting evaluation.", "error");
+    return;
+  }
+
+  if (!getCounselorTurns().length) {
+    setStatus("Send at least one counselor message before evaluation.", "error");
     return;
   }
 
   setLoading(true);
-  setStatus("Evaluating reflection quality...", "info");
+  setStatus("Evaluating the full conversation across counseling skill rubrics...", "info");
 
-  const rubric = [
-    "0.00-0.24: mostly off-target, advice/questioning, little reflection.",
-    "0.25-0.49: some paraphrase but weak emotional attunement.",
-    "0.50-0.74: reflects core feeling/meaning with moderate empathy.",
-    "0.75-1.00: accurate, concise, empathic reflection of deeper meaning and affect.",
-  ].join("\n");
-
+  const transcript = buildTranscriptText();
+  const profile = state.activeProfile || buildDraftProfile();
   const messages = [
     {
       role: "system",
       content:
-        "You are an expert counseling supervisor scoring reflective listening quality. Return JSON only with the exact keys requested. No markdown, no extra keys.",
+        "You are an expert counseling skills evaluator. Evaluate only the counselor turns. Return JSON only, with no markdown and no extra keys.",
     },
     {
       role: "user",
       content:
-        "Evaluate the trainee response using the rubric below.\n\n" +
-        `Rubric:\n${rubric}\n\n` +
-        `Client prompt:\n${state.latestClientPrompt}\n\n` +
-        `Trainee response:\n${traineeText}\n\n` +
-        "Return strict JSON with these keys:\n" +
+        "Evaluate the conversation across four angles: empathy, reflection, open_ended_questions, and affirmations.\n\n" +
+        "Quality levels must be exactly one of: Needs Work, Developing, Effective, Strong.\n\n" +
+        "Use these rubrics:\n" +
+        "Empathy rubrics:\n" +
+        "- Names or validates the patient's emotion.\n" +
+        "- Uses a nonjudgmental, supportive tone.\n" +
+        "- Stays with the patient's perspective before problem-solving.\n\n" +
+        "Reflection rubrics:\n" +
+        "- Captures the patient's main meaning or concern.\n" +
+        "- Reflects feeling, need, or tension rather than just facts.\n" +
+        "- Avoids advice-giving or empty parroting.\n\n" +
+        "Open-ended question rubrics:\n" +
+        "- Invites elaboration rather than yes/no answers.\n" +
+        "- Fits the flow of the conversation rather than interrogating.\n" +
+        "- Helps the patient explore meaning, feelings, or goals.\n\n" +
+        "Affirmation rubrics:\n" +
+        "- Recognizes a strength, effort, value, or resilience.\n" +
+        "- Is specific and genuine rather than generic praise.\n" +
+        "- Supports autonomy or self-efficacy.\n\n" +
+        `Patient profile:\n${formatPersonaSummary(profile)}\n\n` +
+        `Conversation transcript:\n${transcript}\n\n` +
+        "Return strict JSON with this shape:\n" +
         "{\n" +
-        '  "score": number,\n' +
-        '  "evidence": {\n' +
-        '    "client_slice": string,\n' +
-        '    "trainee_slice": string\n' +
+        '  "empathy": {\n' +
+        '    "quality_level": "Needs Work|Developing|Effective|Strong",\n' +
+        '    "summary": string,\n' +
+        '    "rubrics": [\n' +
+        '      { "criterion": string, "met": boolean, "evidence": string }\n' +
+        "    ],\n" +
+        '    "suggestion": string\n' +
         "  },\n" +
-        '  "rubric_explanation": string,\n' +
-        '  "next_step": string,\n' +
-        '  "suggested_response": string\n' +
-        "}\n" +
-        "Constraints:\n" +
-        "- score must be between 0 and 1.\n" +
-        "- evidence slices should be short direct quotes from the inputs.\n" +
-        "- rubric_explanation should justify score according to reflection quality.\n" +
-        "- next_step should say what to improve next turn.\n" +
-        "- suggested_response should model a stronger reflection in 1-2 sentences.",
+        '  "reflection": "same structure as empathy",\n' +
+        '  "open_ended_questions": "same structure as empathy",\n' +
+        '  "affirmations": "same structure as empathy"\n' +
+        "}\n\n" +
+        "Rules:\n" +
+        "- Every angle must include exactly three rubric items.\n" +
+        "- Evidence should be short transcript slices or a brief note that evidence is missing.\n" +
+        "- Suggestion should explain what to improve next for that angle.",
     },
   ];
 
@@ -463,78 +713,167 @@ async function handleEvaluateReflection() {
       model: config.model,
       messages,
       temperature: 0.2,
-      max_tokens: 650,
+      max_tokens: 1200,
       requireJson: true,
     });
 
     const parsed = parseJsonFromResponse(rawFeedback);
-    const feedback = normalizeFeedback(parsed);
-    renderFeedback(feedback);
-    updateActionAvailability();
+    renderEvaluationFeedback(parsed);
     setStatus("Evaluation complete.", "success");
   } catch (error) {
     console.error(error);
-    setStatus(error.message || "Failed to evaluate reflection.", "error");
+    setStatus(error.message || "Failed to evaluate the conversation.", "error");
   } finally {
     setLoading(false);
   }
 }
 
-function normalizeFeedback(raw) {
-  const numericScore = Number.parseFloat(raw.score);
-  const score = Number.isFinite(numericScore) ? clamp(numericScore, 0, 1) : 0;
+function buildTranscriptText() {
+  return state.conversation
+    .map((turn, index) => `${index + 1}. ${turn.speaker}: ${turn.content}`)
+    .join("\n");
+}
 
-  let evidenceText = "No evidence provided.";
-  if (typeof raw.evidence === "string" && raw.evidence.trim()) {
-    evidenceText = raw.evidence.trim();
-  } else if (raw.evidence && typeof raw.evidence === "object") {
-    const clientSlice = String(raw.evidence.client_slice || "").trim();
-    const traineeSlice = String(raw.evidence.trainee_slice || "").trim();
-    if (clientSlice || traineeSlice) {
-      evidenceText = `Client slice: "${clientSlice || "[missing]"}"\nTrainee slice: "${traineeSlice || "[missing]"}"`;
-    }
+function getCounselorTurns() {
+  return state.conversation.filter((turn) => turn.speaker === "Counselor");
+}
+
+function renderConversationStatus() {
+  if (!state.conversationStarted || !state.activeProfile) {
+    dom.conversationStatus.textContent =
+      "No active patient conversation yet. Build a profile and click Start Patient Conversation.";
+    return;
   }
 
-  const rubricExplanation = String(raw.rubric_explanation || "").trim() || "No rubric explanation provided.";
-  const nextStep = String(raw.next_step || "").trim();
-  const suggestedResponse = String(raw.suggested_response || "").trim();
-  const nextAndSuggested =
-    `${nextStep ? `Next step: ${nextStep}` : "Next step: not provided."}\n\n` +
-    `${suggestedResponse ? `Suggested response: ${suggestedResponse}` : "Suggested response: not provided."}`;
+  const statusText = state.conversationEnded ? "Conversation ended." : "Conversation active.";
+  dom.conversationStatus.textContent =
+    `${statusText} Active patient: ${formatLabel(state.activeProfile.issue)} in ${state.activeProfile.region}, ` +
+    `${formatSentence(state.activeProfile.severity)} severity, event: ${state.activeProfile.event}.`;
+}
+
+function renderChatTranscript() {
+  dom.chatTranscript.innerHTML = "";
+
+  if (!state.conversation.length) {
+    const emptyState = document.createElement("div");
+    emptyState.className = "chat-empty";
+    emptyState.textContent = "No conversation yet.";
+    dom.chatTranscript.appendChild(emptyState);
+    return;
+  }
+
+  state.conversation.forEach((turn) => {
+    const message = document.createElement("div");
+    message.className = `chat-message ${turn.speaker === "Counselor" ? "counselor" : "patient"}`;
+
+    const role = document.createElement("p");
+    role.className = "chat-role";
+    role.textContent = turn.speaker;
+
+    const bubble = document.createElement("div");
+    bubble.className = "chat-bubble";
+    bubble.textContent = turn.content;
+
+    message.appendChild(role);
+    message.appendChild(bubble);
+    dom.chatTranscript.appendChild(message);
+  });
+
+  dom.chatTranscript.scrollTop = dom.chatTranscript.scrollHeight;
+}
+
+function renderEvaluationFeedback(rawPayload) {
+  const payload = rawPayload.angles && typeof rawPayload.angles === "object" ? rawPayload.angles : rawPayload;
+
+  Object.keys(ANGLE_CONFIG).forEach((angleKey) => {
+    const normalized = normalizeAngleFeedback(payload[angleKey]);
+    const angleDom = feedbackDom[angleKey];
+
+    setQualityChip(angleDom.quality, normalized.qualityLevel);
+    angleDom.summary.textContent = normalized.summary;
+    angleDom.suggestion.textContent = normalized.suggestion;
+    renderRubricList(angleDom.rubrics, normalized.rubrics);
+  });
+}
+
+function normalizeAngleFeedback(rawAngle) {
+  const safeAngle = rawAngle && typeof rawAngle === "object" ? rawAngle : {};
+  const qualityLevel = String(safeAngle.quality_level || "Needs Work").trim() || "Needs Work";
+  const summary = String(safeAngle.summary || "No summary provided.").trim() || "No summary provided.";
+  const suggestion = String(safeAngle.suggestion || "No suggestion provided.").trim() || "No suggestion provided.";
+  const rawRubrics = Array.isArray(safeAngle.rubrics) ? safeAngle.rubrics : [];
+  const rubrics = rawRubrics.slice(0, 3).map((rubric) => ({
+    criterion: String(rubric.criterion || "Unnamed rubric").trim() || "Unnamed rubric",
+    met: Boolean(rubric.met),
+    evidence: String(rubric.evidence || "No evidence provided.").trim() || "No evidence provided.",
+  }));
 
   return {
-    score,
-    evidenceText,
-    rubricExplanation,
-    nextAndSuggested,
+    qualityLevel,
+    summary,
+    suggestion,
+    rubrics,
   };
 }
 
-function renderFeedback(feedback) {
-  dom.scoreValue.textContent = feedback.score.toFixed(2);
-  dom.scoreFill.style.width = `${Math.round(feedback.score * 100)}%`;
-  dom.evidenceBox.textContent = feedback.evidenceText;
-  dom.explanationBox.textContent = feedback.rubricExplanation;
-  dom.suggestionBox.textContent = feedback.nextAndSuggested;
+function setQualityChip(element, qualityLevel) {
+  element.textContent = qualityLevel;
+  element.className = "quality-chip";
+  element.classList.add(`level-${slugifyQualityLevel(qualityLevel)}`);
+}
+
+function slugifyQualityLevel(qualityLevel) {
+  const mapping = {
+    strong: "strong",
+    effective: "effective",
+    developing: "developing",
+    "needs work": "needs-work",
+    "not evaluated": "neutral",
+  };
+
+  const lowered = String(qualityLevel || "").trim().toLowerCase();
+  return mapping[lowered] || "neutral";
+}
+
+function renderRubricList(container, rubrics) {
+  container.innerHTML = "";
+
+  if (!rubrics.length) {
+    container.textContent = "No rubric details yet.";
+    return;
+  }
+
+  rubrics.forEach((rubric) => {
+    const item = document.createElement("div");
+    item.className = "rubric-item";
+
+    const title = document.createElement("p");
+    title.className = "rubric-title";
+    title.textContent = rubric.criterion;
+
+    const status = document.createElement("p");
+    status.className = `rubric-status ${rubric.met ? "met" : "not-met"}`;
+    status.textContent = rubric.met ? "Satisfied" : "Not satisfied";
+
+    const evidence = document.createElement("p");
+    evidence.className = "rubric-evidence";
+    evidence.textContent = `Evidence: ${rubric.evidence}`;
+
+    item.appendChild(title);
+    item.appendChild(status);
+    item.appendChild(evidence);
+    container.appendChild(item);
+  });
 }
 
 function resetFeedback() {
-  dom.scoreValue.textContent = "-";
-  dom.scoreFill.style.width = "0%";
-  dom.evidenceBox.textContent = "No evidence yet.";
-  dom.explanationBox.textContent = "No explanation yet.";
-  dom.suggestionBox.textContent = "No next step yet.";
-}
-
-function clearScenarioOutput() {
-  clearClientPrompt();
-  resetFeedback();
-  updateActionAvailability();
-}
-
-function clearClientPrompt() {
-  state.latestClientPrompt = "";
-  dom.clientPromptBox.textContent = "No client prompt yet. Select an issue and region, then click Generate.";
+  Object.keys(ANGLE_CONFIG).forEach((angleKey) => {
+    const angle = feedbackDom[angleKey];
+    setQualityChip(angle.quality, "Not evaluated");
+    angle.summary.textContent = "Start an evaluation to see the quality classification.";
+    angle.rubrics.textContent = "No rubric details yet.";
+    angle.suggestion.textContent = "No suggestions yet.";
+  });
 }
 
 async function callOpenRouter({ apiKey, model, messages, temperature, max_tokens, requireJson }) {
@@ -731,12 +1070,18 @@ function updateActionAvailability() {
     Boolean(state.selectedRegion) &&
     Boolean(state.selectedTopic) &&
     Boolean(state.selectedNarrative);
-  const hasTraineeText = Boolean(dom.traineeResponse.value.trim());
-  const hasRegions = getAvailableRegions().length > 0;
+  const hasChatInput = Boolean(dom.chatInput.value.trim());
+  const hasCounselorTurns = getCounselorTurns().length > 0;
+  const hasAvailableRegions = getAvailableRegions().length > 0;
 
-  dom.randomSelectionBtn.disabled = state.isLoading || !state.selectedIssue || !hasRegions;
-  dom.generateClientBtn.disabled = state.isLoading || !hasScenarioSeed;
-  dom.evaluateBtn.disabled = state.isLoading || !state.latestClientPrompt || !hasTraineeText;
+  dom.randomSelectionBtn.disabled = state.isLoading || !state.selectedIssue || !hasAvailableRegions;
+  dom.startConversationBtn.disabled = state.isLoading || !hasScenarioSeed;
+  dom.sendMessageBtn.disabled = state.isLoading || !state.conversationStarted || state.conversationEnded || !hasChatInput;
+  dom.endConversationBtn.disabled = state.isLoading || !state.conversationStarted || state.conversationEnded;
+  dom.startEvaluationBtn.disabled =
+    state.isLoading || !state.conversationStarted || !state.conversationEnded || !hasCounselorTurns;
+  dom.chatInput.disabled = state.isLoading || !state.conversationStarted || state.conversationEnded;
+  dom.startConversationBtn.textContent = state.conversationStarted ? "Start New Patient Conversation" : "Start Patient Conversation";
 }
 
 function readConfig() {
@@ -783,10 +1128,12 @@ function formatLabel(value) {
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-function sample(items) {
-  return items[Math.floor(Math.random() * items.length)];
+function formatSentence(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
+function sample(items) {
+  return items[Math.floor(Math.random() * items.length)];
 }
