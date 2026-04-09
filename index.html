@@ -57,105 +57,140 @@
       </details>
 
       <section class="panel">
-        <h2>1. Client Profile Builder</h2>
+        <h2>1. Patient Profile Studio</h2>
         <p class="muted">
-          Define the presenting concern, region-specific context, and persona details before opening the
-          conversation.
+          Shape the simulated patient first, then use that profile as the backbone for the chat and evaluation.
         </p>
         <div class="builder-layout">
           <div class="builder-main">
-            <section class="builder-block">
-              <h3>Concern and Regional Context</h3>
-              <p class="muted small">
-                Choose a main issue first, then click an active region to silently draw a context topic and
-                narrative seed from the scenario bank.
-              </p>
-              <div id="mainIssueGrid" class="issue-grid" aria-label="Main issue selector"></div>
-              <div class="scenario-layout">
-                <div class="map-panel">
-                  <div class="map-header">
-                    <div>
-                      <h3>Context Map</h3>
-                      <p class="muted small">
-                        Only regions available for the selected issue are active. Random will draw across all
-                        eligible regions for that issue.
-                      </p>
-                    </div>
-                    <button id="randomSelectionBtn" class="btn btn-ghost" type="button">Random Region + Narrative</button>
-                  </div>
-                  <div class="world-map-shell">
-                    <svg class="world-map-art" viewBox="0 0 1000 540" aria-hidden="true">
-                      <ellipse class="continent continent-a" cx="185" cy="165" rx="140" ry="95"></ellipse>
-                      <ellipse class="continent continent-b" cx="255" cy="340" rx="82" ry="132" transform="rotate(14 255 340)"></ellipse>
-                      <ellipse class="continent continent-c" cx="505" cy="160" rx="92" ry="68"></ellipse>
-                      <ellipse class="continent continent-d" cx="572" cy="283" rx="78" ry="126" transform="rotate(8 572 283)"></ellipse>
-                      <ellipse class="continent continent-e" cx="708" cy="212" rx="168" ry="96"></ellipse>
-                      <ellipse class="continent continent-f" cx="852" cy="348" rx="90" ry="54"></ellipse>
-                    </svg>
-                    <div id="regionMap" class="region-map-hotspots" aria-label="World region selector"></div>
-                  </div>
+            <section class="builder-block builder-hero-block">
+              <div class="builder-hero">
+                <div>
+                  <p class="kicker">Patient Setup</p>
+                  <h3>Design a grounded counseling client</h3>
+                  <p class="muted small">
+                    Pick the presenting concern and add the core details that should shape the patient’s tone,
+                    stressors, and goals.
+                  </p>
                 </div>
-                <aside class="selection-card">
-                  <h3>Scenario Seed</h3>
-                  <p id="selectionSummary" class="selection-summary">No issue selected yet.</p>
-                </aside>
+                <div class="builder-progress-card">
+                  <p class="builder-progress-label">Persona completeness</p>
+                  <p id="completionBadge" class="builder-progress-value">0 / 6 essentials filled</p>
+                  <p id="completionHint" class="muted small">Choose a main issue to begin.</p>
+                </div>
               </div>
+              <div class="section-head">
+                <h3>Main Issue</h3>
+                <p id="issueHint" class="field-hint field-hint-inline is-missing">
+                  Choose the main concern to anchor the patient.
+                </p>
+              </div>
+              <div id="mainIssueGrid" class="issue-grid" aria-label="Main issue selector"></div>
             </section>
 
-            <section class="builder-block">
-              <h3>Persona Details</h3>
-              <div class="profile-grid">
-                <label>
-                  Gender
-                  <select id="genderSelect">
-                    <option value="unspecified">Unspecified</option>
-                    <option value="woman">Woman</option>
-                    <option value="man">Man</option>
-                    <option value="nonbinary">Nonbinary</option>
-                    <option value="questioning">Questioning</option>
-                  </select>
-                </label>
-                <label>
-                  Age
-                  <input id="ageInput" type="number" min="12" max="99" placeholder="e.g. 22" />
-                </label>
-                <label>
-                  Occupation
-                  <input id="occupationInput" type="text" placeholder="e.g. graduate student" />
-                </label>
-                <label>
-                  Severity
-                  <select id="severitySelect">
-                    <option value="mild">Mild</option>
-                    <option value="moderate" selected>Moderate</option>
-                    <option value="severe">Severe</option>
-                  </select>
-                </label>
-                <label class="span-2">
-                  Event
-                  <input id="eventInput" type="text" placeholder="e.g. breakup, insomnia, conflict at work" />
-                </label>
-                <label class="span-2">
-                  Goal
-                  <input id="goalInput" type="text" placeholder="e.g. improved sleep, reduced loneliness" />
-                </label>
-                <label class="span-2">
-                  Additional Profile Notes
-                  <textarea
-                    id="additionalDetailsInput"
-                    rows="4"
-                    placeholder="Add any custom background, personality, stressors, culture, identity, or behavior details you want the patient to have."
-                  ></textarea>
-                </label>
+            <section class="builder-block builder-form-shell">
+              <div class="builder-form-grid">
+                <article class="builder-subcard">
+                  <p class="eyebrow">Identity</p>
+                  <h3>Who is this client?</h3>
+                  <p class="muted small">
+                    Start with the broad identity details that help the patient feel specific instead of generic.
+                  </p>
+                  <div class="profile-grid">
+                    <label class="form-field">
+                      <span class="field-label">Gender</span>
+                      <select id="genderSelect">
+                        <option value="unspecified">Unspecified</option>
+                        <option value="woman">Woman</option>
+                        <option value="man">Man</option>
+                        <option value="nonbinary">Nonbinary</option>
+                        <option value="questioning">Questioning</option>
+                      </select>
+                      <p id="genderHint" class="field-hint">
+                        Optional. Leave this broad if you want the persona to stay flexible.
+                      </p>
+                    </label>
+                    <label class="form-field">
+                      <span class="field-label">Age</span>
+                      <input id="ageInput" type="number" min="12" max="99" placeholder="e.g. 22" />
+                      <p id="ageHint" class="field-hint is-missing">
+                        Add an age so the patient voice and life stage feel more believable.
+                      </p>
+                    </label>
+                    <label class="form-field span-2">
+                      <span class="field-label">Occupation</span>
+                      <input id="occupationInput" type="text" placeholder="e.g. graduate student" />
+                      <p id="occupationHint" class="field-hint is-missing">
+                        Add school, work, or daily-role context to ground the patient.
+                      </p>
+                    </label>
+                    <label class="form-field span-2">
+                      <span class="field-label">Severity</span>
+                      <select id="severitySelect">
+                        <option value="mild">Mild</option>
+                        <option value="moderate" selected>Moderate</option>
+                        <option value="severe">Severe</option>
+                      </select>
+                      <p id="severityHint" class="field-hint">
+                        This sets how overwhelmed or impaired the patient should sound in the chat.
+                      </p>
+                    </label>
+                  </div>
+                </article>
+
+                <article class="builder-subcard">
+                  <p class="eyebrow">Situation</p>
+                  <h3>What is happening right now?</h3>
+                  <p class="muted small">
+                    Define the trigger, what the patient wants, and any extra context you want the model to hold.
+                  </p>
+                  <div class="profile-grid">
+                    <label class="form-field span-2">
+                      <span class="field-label">Event</span>
+                      <input id="eventInput" type="text" placeholder="e.g. breakup, insomnia, conflict at work" />
+                      <p id="eventHint" class="field-hint is-missing">
+                        Add the event or current stressor the patient is bringing into session.
+                      </p>
+                    </label>
+                    <label class="form-field span-2">
+                      <span class="field-label">Goal</span>
+                      <input id="goalInput" type="text" placeholder="e.g. improved sleep, reduced loneliness" />
+                      <p id="goalHint" class="field-hint is-missing">
+                        Add what the patient hopes will improve or feel different.
+                      </p>
+                    </label>
+                    <label class="form-field span-2">
+                      <span class="field-label">Additional Profile Notes</span>
+                      <textarea
+                        id="additionalDetailsInput"
+                        rows="5"
+                        placeholder="Add culture, identity, family, personality, stressors, coping style, or any custom details you want the patient to carry into the conversation."
+                      ></textarea>
+                      <p id="notesHint" class="field-hint">
+                        Optional. Use this for tone, history, cultural context, or anything nuanced.
+                      </p>
+                    </label>
+                  </div>
+                </article>
               </div>
             </section>
           </div>
 
           <aside class="persona-card">
+            <p class="eyebrow">Live Preview</p>
             <h3>Persona Snapshot</h3>
+            <p class="muted small">
+              This is the draft profile the simulated patient will use when the conversation starts.
+            </p>
             <p id="personaSummary" class="selection-summary">
               Complete the builder to preview the draft patient persona.
             </p>
+            <div class="persona-missing">
+              <h3>Still worth filling</h3>
+              <ul id="profileChecklist" class="profile-checklist">
+                <li>Choose a main issue to anchor the patient.</li>
+              </ul>
+            </div>
             <button id="startConversationBtn" class="btn btn-primary" type="button">Start Patient Conversation</button>
           </aside>
         </div>
@@ -168,19 +203,27 @@
           conversation and start evaluation.
         </p>
         <div class="chat-panel">
-          <p id="conversationStatus" class="muted small chat-status">
-            No active patient conversation yet. Build a profile and click Start Patient Conversation.
-          </p>
-          <div id="chatTranscript" class="chat-transcript" aria-live="polite">
-            <div class="chat-empty">No conversation yet.</div>
-          </div>
-          <div class="chat-composer">
-            <textarea
-              id="chatInput"
-              rows="3"
-              placeholder="Type your counselor message here..."
-            ></textarea>
-            <button id="sendMessageBtn" class="btn btn-secondary" type="button">Send Message</button>
+          <div class="chat-shell">
+            <div class="chat-header">
+              <div class="chat-avatar">P</div>
+              <div class="chat-header-copy">
+                <h3>Simulated Patient</h3>
+                <p id="conversationStatus" class="muted small chat-status">
+                  No active patient conversation yet. Build a profile and click Start Patient Conversation.
+                </p>
+              </div>
+            </div>
+            <div id="chatTranscript" class="chat-transcript" aria-live="polite">
+              <div class="chat-empty">No conversation yet.</div>
+            </div>
+            <div class="chat-composer">
+              <textarea
+                id="chatInput"
+                rows="3"
+                placeholder="Type your counselor message here..."
+              ></textarea>
+              <button id="sendMessageBtn" class="btn btn-secondary" type="button">Send Message</button>
+            </div>
           </div>
           <div class="chat-actions">
             <button id="endConversationBtn" class="btn btn-outline" type="button">End Conversation</button>
@@ -193,74 +236,70 @@
         <div class="feedback-header">
           <h2>Feedback</h2>
           <p class="muted">
-            Review the quality classification, rubric details with evidence, and suggestions across four
-            counseling angles.
+            Review the quality classification for each counseling factor, then open the rubric details and
+            evidence right under that factor.
           </p>
         </div>
 
         <div class="feedback-stack">
-          <div class="feedback-row">
-            <article class="feedback-card angle-card">
-              <h3>Empathy</h3>
-              <p id="empathyQuality" class="quality-chip level-neutral">Not evaluated</p>
+          <div class="feedback-grid">
+            <article class="feedback-card factor-card">
+              <div class="factor-header">
+                <h3>Empathy</h3>
+                <p id="empathyQuality" class="quality-chip level-neutral">Not evaluated</p>
+              </div>
               <p id="empathySummary" class="feedback-text">Start an evaluation to see the quality classification.</p>
+              <details class="factor-details">
+                <summary>Rubric details and evidence</summary>
+                <div id="empathyRubrics" class="rubric-list">No rubric details yet.</div>
+              </details>
             </article>
-            <article class="feedback-card angle-card">
-              <h3>Reflection</h3>
-              <p id="reflectionQuality" class="quality-chip level-neutral">Not evaluated</p>
+
+            <article class="feedback-card factor-card">
+              <div class="factor-header">
+                <h3>Reflection</h3>
+                <p id="reflectionQuality" class="quality-chip level-neutral">Not evaluated</p>
+              </div>
               <p id="reflectionSummary" class="feedback-text">Start an evaluation to see the quality classification.</p>
+              <details class="factor-details">
+                <summary>Rubric details and evidence</summary>
+                <div id="reflectionRubrics" class="rubric-list">No rubric details yet.</div>
+              </details>
             </article>
-            <article class="feedback-card angle-card">
-              <h3>Open-Ended Questions</h3>
-              <p id="openQuestionsQuality" class="quality-chip level-neutral">Not evaluated</p>
+
+            <article class="feedback-card factor-card">
+              <div class="factor-header">
+                <h3>Open-Ended Questions</h3>
+                <p id="openQuestionsQuality" class="quality-chip level-neutral">Not evaluated</p>
+              </div>
               <p id="openQuestionsSummary" class="feedback-text">
                 Start an evaluation to see the quality classification.
               </p>
+              <details class="factor-details">
+                <summary>Rubric details and evidence</summary>
+                <div id="openQuestionsRubrics" class="rubric-list">No rubric details yet.</div>
+              </details>
             </article>
-            <article class="feedback-card angle-card">
-              <h3>Affirmations</h3>
-              <p id="affirmationsQuality" class="quality-chip level-neutral">Not evaluated</p>
+
+            <article class="feedback-card factor-card">
+              <div class="factor-header">
+                <h3>Affirmations</h3>
+                <p id="affirmationsQuality" class="quality-chip level-neutral">Not evaluated</p>
+              </div>
               <p id="affirmationsSummary" class="feedback-text">Start an evaluation to see the quality classification.</p>
+              <details class="factor-details">
+                <summary>Rubric details and evidence</summary>
+                <div id="affirmationsRubrics" class="rubric-list">No rubric details yet.</div>
+              </details>
             </article>
           </div>
 
-          <div class="feedback-row details-row">
-            <details class="feedback-card rubric-card">
-              <summary>Empathy Rubric Details</summary>
-              <div id="empathyRubrics" class="rubric-list">No rubric details yet.</div>
-            </details>
-            <details class="feedback-card rubric-card">
-              <summary>Reflection Rubric Details</summary>
-              <div id="reflectionRubrics" class="rubric-list">No rubric details yet.</div>
-            </details>
-            <details class="feedback-card rubric-card">
-              <summary>Open-Ended Questions Rubric Details</summary>
-              <div id="openQuestionsRubrics" class="rubric-list">No rubric details yet.</div>
-            </details>
-            <details class="feedback-card rubric-card">
-              <summary>Affirmations Rubric Details</summary>
-              <div id="affirmationsRubrics" class="rubric-list">No rubric details yet.</div>
-            </details>
-          </div>
-
-          <div class="feedback-row">
-            <article class="feedback-card angle-card">
-              <h3>Empathy Suggestions</h3>
-              <p id="empathySuggestion" class="feedback-text">No suggestions yet.</p>
-            </article>
-            <article class="feedback-card angle-card">
-              <h3>Reflection Suggestions</h3>
-              <p id="reflectionSuggestion" class="feedback-text">No suggestions yet.</p>
-            </article>
-            <article class="feedback-card angle-card">
-              <h3>Open-Ended Questions Suggestions</h3>
-              <p id="openQuestionsSuggestion" class="feedback-text">No suggestions yet.</p>
-            </article>
-            <article class="feedback-card angle-card">
-              <h3>Affirmations Suggestions</h3>
-              <p id="affirmationsSuggestion" class="feedback-text">No suggestions yet.</p>
-            </article>
-          </div>
+          <article class="feedback-card suggestion-card">
+            <h3>Combined Suggestions</h3>
+            <p id="combinedSuggestions" class="feedback-text">
+              End the conversation and start evaluation to see next-step guidance.
+            </p>
+          </article>
         </div>
       </section>
 

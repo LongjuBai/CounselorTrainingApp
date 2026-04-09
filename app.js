@@ -1,76 +1,115 @@
-const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
-const STORAGE_KEY = "reflection_training_config_v1";
-const MENTAL_BANK_URL = "./world_mental_bank.json";
-
-const REGION_LAYOUT = {
-  "North America": { x: 16, y: 28 },
-  "Latin America": { x: 25, y: 64 },
-  Europe: { x: 49, y: 25 },
-  "Eastern Europe": { x: 57, y: 28 },
-  Africa: { x: 54, y: 56 },
-  "Middle East": { x: 63, y: 39 },
-  "South Asia": { x: 71, y: 46 },
-  "Southeast Asia": { x: 80, y: 51 },
-  "East Asia": { x: 84, y: 28 },
-  Global: { x: 50, y: 80 },
-};
+const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
+const STORAGE_KEY = 'reflection_training_config_v1';
+const MENTAL_BANK_URL = './world_mental_bank.json';
 
 const ANGLE_CONFIG = {
   empathy: {
-    label: "Empathy",
-    qualityId: "empathyQuality",
-    summaryId: "empathySummary",
-    rubricsId: "empathyRubrics",
-    suggestionId: "empathySuggestion",
+    label: 'Empathy',
+    qualityId: 'empathyQuality',
+    summaryId: 'empathySummary',
+    rubricsId: 'empathyRubrics',
   },
   reflection: {
-    label: "Reflection",
-    qualityId: "reflectionQuality",
-    summaryId: "reflectionSummary",
-    rubricsId: "reflectionRubrics",
-    suggestionId: "reflectionSuggestion",
+    label: 'Reflection',
+    qualityId: 'reflectionQuality',
+    summaryId: 'reflectionSummary',
+    rubricsId: 'reflectionRubrics',
   },
   open_ended_questions: {
-    label: "Open-Ended Questions",
-    qualityId: "openQuestionsQuality",
-    summaryId: "openQuestionsSummary",
-    rubricsId: "openQuestionsRubrics",
-    suggestionId: "openQuestionsSuggestion",
+    label: 'Open-Ended Questions',
+    qualityId: 'openQuestionsQuality',
+    summaryId: 'openQuestionsSummary',
+    rubricsId: 'openQuestionsRubrics',
   },
   affirmations: {
-    label: "Affirmations",
-    qualityId: "affirmationsQuality",
-    summaryId: "affirmationsSummary",
-    rubricsId: "affirmationsRubrics",
-    suggestionId: "affirmationsSuggestion",
+    label: 'Affirmations',
+    qualityId: 'affirmationsQuality',
+    summaryId: 'affirmationsSummary',
+    rubricsId: 'affirmationsRubrics',
   },
 };
 
+const PROFILE_ESSENTIALS = [
+  {
+    key: 'issue',
+    label: 'main issue',
+    isFilled: (profile) => Boolean(profile.issue),
+    missingText: 'Choose the main concern to anchor the patient.',
+    filledText: (profile) => `Selected concern: ${formatLabel(profile.issue)}.`,
+  },
+  {
+    key: 'gender',
+    label: 'gender',
+    isFilled: (profile) => profile.gender !== 'unspecified',
+    missingText: 'Pick a gender if you want the patient voice to feel more specific.',
+    filledText: (profile) => `Gender set to ${formatSentence(profile.gender)}.`,
+  },
+  {
+    key: 'age',
+    label: 'age',
+    isFilled: (profile) => Boolean(profile.age),
+    missingText: 'Add an age so the patient voice and life stage feel more believable.',
+    filledText: (profile) => `Age set to ${profile.age}.`,
+  },
+  {
+    key: 'occupation',
+    label: 'occupation',
+    isFilled: (profile) => Boolean(profile.occupation),
+    missingText: 'Add school, work, or daily-role context to ground the patient.',
+    filledText: (profile) => `Occupation set to ${profile.occupation}.`,
+  },
+  {
+    key: 'event',
+    label: 'event',
+    isFilled: (profile) => Boolean(profile.event),
+    missingText: 'Add the event or current stressor the patient is bringing into session.',
+    filledText: (profile) => `Current stressor: ${profile.event}.`,
+  },
+  {
+    key: 'goal',
+    label: 'goal',
+    isFilled: (profile) => Boolean(profile.goal),
+    missingText: 'Add what the patient hopes will improve or feel different.',
+    filledText: (profile) => `Current goal: ${profile.goal}.`,
+  },
+];
+
+const REQUIRED_PROFILE_KEYS = ['issue', 'event', 'goal'];
+
 const dom = {
-  apiKeyInput: document.getElementById("apiKeyInput"),
-  modelInput: document.getElementById("modelInput"),
-  openrouterFileInput: document.getElementById("openrouterFileInput"),
-  rememberToggle: document.getElementById("rememberToggle"),
-  mainIssueGrid: document.getElementById("mainIssueGrid"),
-  regionMap: document.getElementById("regionMap"),
-  randomSelectionBtn: document.getElementById("randomSelectionBtn"),
-  selectionSummary: document.getElementById("selectionSummary"),
-  genderSelect: document.getElementById("genderSelect"),
-  ageInput: document.getElementById("ageInput"),
-  occupationInput: document.getElementById("occupationInput"),
-  severitySelect: document.getElementById("severitySelect"),
-  eventInput: document.getElementById("eventInput"),
-  goalInput: document.getElementById("goalInput"),
-  additionalDetailsInput: document.getElementById("additionalDetailsInput"),
-  personaSummary: document.getElementById("personaSummary"),
-  startConversationBtn: document.getElementById("startConversationBtn"),
-  conversationStatus: document.getElementById("conversationStatus"),
-  chatTranscript: document.getElementById("chatTranscript"),
-  chatInput: document.getElementById("chatInput"),
-  sendMessageBtn: document.getElementById("sendMessageBtn"),
-  endConversationBtn: document.getElementById("endConversationBtn"),
-  startEvaluationBtn: document.getElementById("startEvaluationBtn"),
-  statusBox: document.getElementById("statusBox"),
+  apiKeyInput: document.getElementById('apiKeyInput'),
+  modelInput: document.getElementById('modelInput'),
+  openrouterFileInput: document.getElementById('openrouterFileInput'),
+  rememberToggle: document.getElementById('rememberToggle'),
+  mainIssueGrid: document.getElementById('mainIssueGrid'),
+  completionBadge: document.getElementById('completionBadge'),
+  completionHint: document.getElementById('completionHint'),
+  issueHint: document.getElementById('issueHint'),
+  genderSelect: document.getElementById('genderSelect'),
+  genderHint: document.getElementById('genderHint'),
+  ageInput: document.getElementById('ageInput'),
+  ageHint: document.getElementById('ageHint'),
+  occupationInput: document.getElementById('occupationInput'),
+  occupationHint: document.getElementById('occupationHint'),
+  severitySelect: document.getElementById('severitySelect'),
+  severityHint: document.getElementById('severityHint'),
+  eventInput: document.getElementById('eventInput'),
+  eventHint: document.getElementById('eventHint'),
+  goalInput: document.getElementById('goalInput'),
+  goalHint: document.getElementById('goalHint'),
+  additionalDetailsInput: document.getElementById('additionalDetailsInput'),
+  notesHint: document.getElementById('notesHint'),
+  personaSummary: document.getElementById('personaSummary'),
+  profileChecklist: document.getElementById('profileChecklist'),
+  startConversationBtn: document.getElementById('startConversationBtn'),
+  conversationStatus: document.getElementById('conversationStatus'),
+  chatTranscript: document.getElementById('chatTranscript'),
+  chatInput: document.getElementById('chatInput'),
+  sendMessageBtn: document.getElementById('sendMessageBtn'),
+  endConversationBtn: document.getElementById('endConversationBtn'),
+  startEvaluationBtn: document.getElementById('startEvaluationBtn'),
+  combinedSuggestions: document.getElementById('combinedSuggestions'),
+  statusBox: document.getElementById('statusBox'),
 };
 
 const feedbackDom = Object.fromEntries(
@@ -80,7 +119,6 @@ const feedbackDom = Object.fromEntries(
       quality: document.getElementById(config.qualityId),
       summary: document.getElementById(config.summaryId),
       rubrics: document.getElementById(config.rubricsId),
-      suggestion: document.getElementById(config.suggestionId),
     },
   ]),
 );
@@ -88,16 +126,12 @@ const feedbackDom = Object.fromEntries(
 const state = {
   mentalBank: {},
   issueOrder: [],
-  regionOrder: [],
-  selectedIssue: "",
-  selectedRegion: "",
-  selectedTopic: "",
-  selectedNarrative: "",
+  selectedIssue: '',
   conversation: [],
   conversationStarted: false,
   conversationEnded: false,
   activeProfile: null,
-  patientSystemPrompt: "",
+  patientSystemPrompt: '',
   isLoading: false,
 };
 
@@ -114,27 +148,25 @@ async function init() {
   try {
     await loadMentalBank();
     renderIssueButtons();
-    renderRegionButtons();
     updateActionAvailability();
-    setStatus("Set the concern, region, and profile details, then start the conversation.", "info");
+    setStatus('Pick a concern and fill the patient profile, then start the conversation.', 'info');
   } catch (error) {
     console.error(error);
-    dom.mainIssueGrid.textContent = "Scenario bank failed to load.";
-    setStatus("Could not load world_mental_bank.json. Serve the folder with a local web server and try again.", "error");
+    dom.mainIssueGrid.textContent = 'Issue bank failed to load.';
+    setStatus('Could not load world_mental_bank.json. Serve the folder with a local web server and try again.', 'error');
   }
 }
 
 function bindEventListeners() {
-  dom.openrouterFileInput.addEventListener("change", handleOpenRouterFile);
-  dom.randomSelectionBtn.addEventListener("click", handleRandomSelection);
-  dom.startConversationBtn.addEventListener("click", handleStartConversation);
-  dom.sendMessageBtn.addEventListener("click", handleSendMessage);
-  dom.endConversationBtn.addEventListener("click", handleEndConversation);
-  dom.startEvaluationBtn.addEventListener("click", handleStartEvaluation);
-  dom.apiKeyInput.addEventListener("input", maybePersistConfig);
-  dom.modelInput.addEventListener("input", maybePersistConfig);
-  dom.rememberToggle.addEventListener("change", maybePersistConfig);
-  dom.chatInput.addEventListener("input", updateActionAvailability);
+  dom.openrouterFileInput.addEventListener('change', handleOpenRouterFile);
+  dom.startConversationBtn.addEventListener('click', handleStartConversation);
+  dom.sendMessageBtn.addEventListener('click', handleSendMessage);
+  dom.endConversationBtn.addEventListener('click', handleEndConversation);
+  dom.startEvaluationBtn.addEventListener('click', handleStartEvaluation);
+  dom.apiKeyInput.addEventListener('input', maybePersistConfig);
+  dom.modelInput.addEventListener('input', maybePersistConfig);
+  dom.rememberToggle.addEventListener('change', maybePersistConfig);
+  dom.chatInput.addEventListener('input', updateActionAvailability);
 
   [
     dom.genderSelect,
@@ -145,8 +177,8 @@ function bindEventListeners() {
     dom.goalInput,
     dom.additionalDetailsInput,
   ].forEach((element) => {
-    element.addEventListener("input", handleProfileDraftChange);
-    element.addEventListener("change", handleProfileDraftChange);
+    element.addEventListener('input', handleProfileDraftChange);
+    element.addEventListener('change', handleProfileDraftChange);
   });
 }
 
@@ -156,207 +188,55 @@ function handleProfileDraftChange() {
 }
 
 async function loadMentalBank() {
-  const response = await fetch(MENTAL_BANK_URL, { cache: "no-store" });
+  const response = await fetch(MENTAL_BANK_URL, { cache: 'no-store' });
   if (!response.ok) {
-    throw new Error(`Failed to load scenario bank (${response.status}).`);
+    throw new Error(`Failed to load issue bank (${response.status}).`);
   }
 
   const mentalBank = await response.json();
   state.mentalBank = mentalBank;
-  state.issueOrder = Object.keys(mentalBank);
-  state.regionOrder = buildOrderedRegionList(mentalBank);
-}
-
-function buildOrderedRegionList(mentalBank) {
-  const discovered = new Set();
-  Object.values(mentalBank).forEach((issueData) => {
-    Object.keys(issueData || {}).forEach((region) => discovered.add(region));
-  });
-
-  const preferred = Object.keys(REGION_LAYOUT).filter((region) => discovered.has(region));
-  const fallback = [...discovered]
-    .filter((region) => !REGION_LAYOUT[region])
-    .sort((left, right) => left.localeCompare(right));
-
-  return [...preferred, ...fallback];
+  state.issueOrder = Object.keys(mentalBank || {});
 }
 
 function renderIssueButtons() {
-  dom.mainIssueGrid.innerHTML = "";
+  dom.mainIssueGrid.innerHTML = '';
   state.issueOrder.forEach((issueKey) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "issue-chip";
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'issue-chip';
     button.textContent = formatLabel(issueKey);
-    button.setAttribute("aria-pressed", "false");
+    button.setAttribute('aria-pressed', 'false');
     button.dataset.issueKey = issueKey;
-    button.addEventListener("click", () => handleIssueSelect(issueKey));
+    button.addEventListener('click', () => handleIssueSelect(issueKey));
     dom.mainIssueGrid.appendChild(button);
   });
 }
 
-function renderRegionButtons() {
-  dom.regionMap.innerHTML = "";
-  state.regionOrder.forEach((region, index) => {
-    const layout = REGION_LAYOUT[region] || buildFallbackRegionLayout(index);
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "region-pin";
-    button.textContent = region;
-    button.dataset.region = region;
-    button.style.setProperty("--x", `${layout.x}%`);
-    button.style.setProperty("--y", `${layout.y}%`);
-    button.addEventListener("click", () => handleRegionSelect(region));
-    dom.regionMap.appendChild(button);
-  });
-  updateRegionButtons();
-}
-
-function buildFallbackRegionLayout(index) {
-  const column = index % 4;
-  const row = Math.floor(index / 4);
-  return {
-    x: 18 + column * 20,
-    y: 82 + row * 10,
-  };
-}
-
 function handleIssueSelect(issueKey) {
   state.selectedIssue = issueKey;
-  state.selectedRegion = "";
-  state.selectedTopic = "";
-  state.selectedNarrative = "";
   updateIssueButtons();
-  updateRegionButtons();
   renderDraftSummaries();
   updateActionAvailability();
-  setStatus(`Main issue selected: ${formatLabel(issueKey)}. Choose a region or use Random.`, "success");
-}
-
-function handleRegionSelect(region) {
-  if (!state.selectedIssue) {
-    setStatus("Pick a main issue before choosing a region.", "error");
-    return;
-  }
-
-  const regionData = state.mentalBank[state.selectedIssue]?.[region];
-  if (!regionData) {
-    setStatus(`No scenarios are available for ${region} under ${formatLabel(state.selectedIssue)}.`, "error");
-    return;
-  }
-
-  const scenario = pickRandomScenarioFromRegion(regionData);
-  applyScenarioSeed(region, scenario.topic, scenario.narrative, "region");
-}
-
-function handleRandomSelection() {
-  if (!state.selectedIssue) {
-    setStatus("Pick a main issue first, then Random can choose across that issue's regions.", "error");
-    return;
-  }
-
-  const issueData = state.mentalBank[state.selectedIssue] || {};
-  const regionEntries = Object.entries(issueData).flatMap(([region, regionData]) =>
-    extractScenarioOptions(regionData).map((option) => ({
-      region,
-      topic: option.topic,
-      narrative: option.narrative,
-    })),
-  );
-
-  if (!regionEntries.length) {
-    setStatus("No scenario seeds are available for the selected issue.", "error");
-    return;
-  }
-
-  const selection = sample(regionEntries);
-  applyScenarioSeed(selection.region, selection.topic, selection.narrative, "random");
-}
-
-function applyScenarioSeed(region, topic, narrative, source) {
-  state.selectedRegion = region;
-  state.selectedTopic = topic;
-  state.selectedNarrative = narrative;
-  dom.eventInput.value = narrative;
-  updateRegionButtons();
-  renderDraftSummaries();
-  updateActionAvailability();
-
-  const sourceLabel = source === "random" ? "Random scenario ready" : "Scenario ready";
-  setStatus(
-    `${sourceLabel}: ${formatLabel(state.selectedIssue)} -> ${region} -> ${formatLabel(topic)} -> ${narrative}.`,
-    "success",
-  );
-}
-
-function extractScenarioOptions(regionData) {
-  if (Array.isArray(regionData)) {
-    return regionData.map((narrative) => ({
-      topic: "general",
-      narrative,
-    }));
-  }
-
-  return Object.entries(regionData || {}).flatMap(([topic, narratives]) => {
-    if (!Array.isArray(narratives)) return [];
-    return narratives.map((narrative) => ({
-      topic,
-      narrative,
-    }));
-  });
-}
-
-function pickRandomScenarioFromRegion(regionData) {
-  const options = extractScenarioOptions(regionData);
-  if (!options.length) {
-    return {
-      topic: "general",
-      narrative: "general distress with unclear context",
-    };
-  }
-  return sample(options);
+  setStatus(`Main issue selected: ${formatLabel(issueKey)}. Finish the patient profile when ready.`, 'success');
 }
 
 function updateIssueButtons() {
-  const issueButtons = dom.mainIssueGrid.querySelectorAll(".issue-chip");
+  const issueButtons = dom.mainIssueGrid.querySelectorAll('.issue-chip');
   issueButtons.forEach((button) => {
     const isActive = button.dataset.issueKey === state.selectedIssue;
-    button.classList.toggle("selected", isActive);
-    button.setAttribute("aria-pressed", String(isActive));
+    button.classList.toggle('selected', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
   });
-}
-
-function updateRegionButtons() {
-  const availableRegions = new Set(getAvailableRegions());
-  const regionButtons = dom.regionMap.querySelectorAll(".region-pin");
-
-  regionButtons.forEach((button) => {
-    const region = button.dataset.region;
-    const isAvailable = availableRegions.has(region);
-    const isActive = region === state.selectedRegion;
-    button.disabled = !isAvailable;
-    button.classList.toggle("is-disabled", !isAvailable);
-    button.classList.toggle("is-active", isActive);
-    button.setAttribute("aria-pressed", String(isActive));
-  });
-}
-
-function getAvailableRegions() {
-  if (!state.selectedIssue) return [];
-  return Object.keys(state.mentalBank[state.selectedIssue] || {});
 }
 
 function buildDraftProfile() {
   return {
     issue: state.selectedIssue,
-    region: state.selectedRegion,
-    topic: state.selectedTopic,
-    narrative: state.selectedNarrative,
-    gender: dom.genderSelect.value.trim() || "unspecified",
-    age: dom.ageInput.value.trim() || "unspecified",
-    occupation: dom.occupationInput.value.trim() || "unspecified",
-    severity: dom.severitySelect.value.trim() || "moderate",
-    event: dom.eventInput.value.trim() || state.selectedNarrative || "",
+    gender: dom.genderSelect.value.trim() || 'unspecified',
+    age: dom.ageInput.value.trim(),
+    occupation: dom.occupationInput.value.trim(),
+    severity: dom.severitySelect.value.trim() || 'moderate',
+    event: dom.eventInput.value.trim(),
     goal: dom.goalInput.value.trim(),
     additionalDetails: dom.additionalDetailsInput.value.trim(),
   };
@@ -364,57 +244,172 @@ function buildDraftProfile() {
 
 function normalizeProfileForConversation(profile) {
   return {
-    ...profile,
-    event: profile.event || "ongoing emotional strain",
-    goal: profile.goal || "better coping and emotional clarity",
+    issue: profile.issue || 'general distress',
+    gender: profile.gender || 'unspecified',
+    age: profile.age || 'adult',
+    occupation: profile.occupation || 'not specified',
+    severity: profile.severity || 'moderate',
+    event: profile.event || 'ongoing emotional strain',
+    goal: profile.goal || 'better coping and emotional clarity',
+    additionalDetails: profile.additionalDetails || '',
+  };
+}
+
+function getProfileCompleteness(profile) {
+  const essentials = PROFILE_ESSENTIALS.map((entry) => ({
+    key: entry.key,
+    label: entry.label,
+    filled: entry.isFilled(profile),
+    missingText: entry.missingText,
+    filledText: typeof entry.filledText === 'function' ? entry.filledText(profile) : entry.filledText,
+  }));
+  const completedCount = essentials.filter((entry) => entry.filled).length;
+  const missing = essentials.filter((entry) => !entry.filled);
+  const missingRequired = REQUIRED_PROFILE_KEYS.filter((key) => {
+    const essential = essentials.find((entry) => entry.key === key);
+    return !essential?.filled;
+  });
+
+  return {
+    essentials,
+    completedCount,
+    missing,
+    missingRequired,
+    readyToStart: missingRequired.length === 0,
   };
 }
 
 function renderDraftSummaries() {
   const profile = buildDraftProfile();
-  dom.selectionSummary.textContent = formatScenarioSeedSummary(profile);
+  const completeness = getProfileCompleteness(profile);
+
   dom.personaSummary.textContent = formatPersonaSummary(profile);
+  dom.completionBadge.textContent = `${completeness.completedCount} / ${completeness.essentials.length} essentials filled`;
+  dom.completionHint.textContent = buildCompletionHint(completeness);
+
+  renderProfileHints(profile, completeness);
+  renderProfileChecklist(profile);
 }
 
-function formatScenarioSeedSummary(profile) {
-  if (!profile.issue) {
-    return "Main issue: waiting for selection\nRegion: --\nTopic: --\nNarrative: --";
+function buildCompletionHint(completeness) {
+  if (!completeness.completedCount) {
+    return 'Choose a main issue and add a few core details to shape the patient.';
   }
 
-  if (!profile.region) {
-    return `Main issue: ${formatLabel(profile.issue)}\nRegion: choose from the active map zones\nTopic: --\nNarrative: --`;
+  if (completeness.missing.length) {
+    const labels = completeness.missing.slice(0, 3).map((entry) => entry.label);
+    return `Strongest next fills: ${labels.join(', ')}.`;
   }
 
-  return (
-    `Main issue: ${formatLabel(profile.issue)}\n` +
-    `Region: ${profile.region}\n` +
-    `Topic: ${formatLabel(profile.topic)}\n` +
-    `Narrative: ${profile.narrative}`
+  return 'Profile looks grounded. You can start the conversation or add optional notes for more nuance.';
+}
+
+function renderProfileHints(profile, completeness) {
+  const essentialsByKey = Object.fromEntries(completeness.essentials.map((entry) => [entry.key, entry]));
+
+  applyHintState(dom.issueHint, essentialsByKey.issue);
+  applyHintState(dom.genderHint, essentialsByKey.gender);
+  applyHintState(dom.ageHint, essentialsByKey.age);
+  applyHintState(dom.occupationHint, essentialsByKey.occupation);
+  applyHintState(dom.eventHint, essentialsByKey.event);
+  applyHintState(dom.goalHint, essentialsByKey.goal);
+
+  setStaticHint(dom.severityHint, `Severity set to ${formatSentence(profile.severity)}.`);
+  setStaticHint(
+    dom.notesHint,
+    profile.additionalDetails
+      ? 'Additional notes added. The patient will carry this nuance into the chat.'
+      : 'Optional. Use this for tone, history, cultural context, or anything nuanced.',
   );
+}
+
+function applyHintState(element, entry) {
+  const text = entry.filled ? entry.filledText : entry.missingText;
+  element.textContent = text;
+  element.classList.toggle('is-missing', !entry.filled);
+
+  const field = element.closest('.form-field');
+  if (field) {
+    field.classList.toggle('needs-input', !entry.filled);
+  }
+}
+
+function setStaticHint(element, text) {
+  element.textContent = text;
+  element.classList.remove('is-missing');
+
+  const field = element.closest('.form-field');
+  if (field) {
+    field.classList.remove('needs-input');
+  }
+}
+
+function renderProfileChecklist(profile) {
+  dom.profileChecklist.innerHTML = '';
+
+  const checklistItems = [];
+
+  if (!profile.issue) {
+    checklistItems.push('Choose a main issue so the patient has a clear presenting concern.');
+  }
+  if (!profile.event) {
+    checklistItems.push('Describe the current event or stressor the patient is reacting to.');
+  }
+  if (!profile.goal) {
+    checklistItems.push('Add what the patient wants help with or hopes will improve.');
+  }
+  if (!profile.age) {
+    checklistItems.push('Add an age so the patient voice matches a believable life stage.');
+  }
+  if (!profile.occupation) {
+    checklistItems.push('Add work, school, or caregiving context to make the story more specific.');
+  }
+  if (profile.gender === 'unspecified') {
+    checklistItems.push('Optional: choose a gender if you want the persona to feel more specific.');
+  }
+  if (!profile.additionalDetails) {
+    checklistItems.push('Optional: add extra notes if you want more cultural, relational, or personality nuance.');
+  }
+
+  const itemsToRender = checklistItems.length
+    ? checklistItems
+    : ['Everything important is filled. You can start the conversation whenever you are ready.'];
+
+  itemsToRender.forEach((itemText) => {
+    const item = document.createElement('li');
+    item.textContent = itemText;
+    if (!checklistItems.length) {
+      item.classList.add('checklist-success');
+    }
+    dom.profileChecklist.appendChild(item);
+  });
 }
 
 function formatPersonaSummary(profile) {
-  const issueText = profile.issue ? formatLabel(profile.issue) : "waiting for concern selection";
-  const regionText = profile.region || "waiting for region selection";
-  const topicText = profile.topic ? formatLabel(profile.topic) : "waiting for topic seed";
+  const concern = profile.issue ? formatLabel(profile.issue) : 'Not selected yet';
+  const gender = profile.gender !== 'unspecified' ? formatSentence(profile.gender) : 'Not set';
+  const age = profile.age || 'Not set';
+  const occupation = profile.occupation || 'Not set';
+  const severity = formatSentence(profile.severity || 'moderate');
+  const event = profile.event || "Add the patient's current stressor or event.";
+  const goal = profile.goal || 'Add what the patient wants help with.';
+  const notes = profile.additionalDetails || 'No extra notes yet.';
 
-  return (
-    `Concern: ${issueText}\n` +
-    `Region: ${regionText}\n` +
-    `Topic seed: ${topicText}\n` +
-    `Gender: ${formatOptionalValue(profile.gender, true)}\n` +
-    `Age: ${formatOptionalValue(profile.age)}\n` +
-    `Occupation: ${formatOptionalValue(profile.occupation)}\n` +
-    `Severity: ${formatOptionalValue(profile.severity, true)}\n` +
-    `Event: ${formatOptionalValue(profile.event)}\n` +
-    `Goal: ${formatOptionalValue(profile.goal)}\n` +
-    `Additional notes: ${formatOptionalValue(profile.additionalDetails)}`
-  );
+  return [
+    `Main issue: ${concern}`,
+    `Identity: ${gender} • ${age} • ${occupation}`,
+    `Severity: ${severity}`,
+    `Current event: ${event}`,
+    `Goal: ${goal}`,
+    `Additional notes: ${notes}`,
+  ].join('\n');
 }
 
-function formatOptionalValue(value, alreadyHumanized = false) {
-  if (!value || value === "unspecified") return "Unspecified";
-  return alreadyHumanized ? formatSentence(value) : value;
+function getMissingRequiredLabels(profile) {
+  return REQUIRED_PROFILE_KEYS.filter((key) => {
+    if (key === 'issue') return !profile.issue;
+    return !String(profile[key] || '').trim();
+  }).map((key) => PROFILE_ESSENTIALS.find((entry) => entry.key === key)?.label || key);
 }
 
 async function handleOpenRouterFile(event) {
@@ -428,41 +423,49 @@ async function handleOpenRouterFile(event) {
     if (apiKey) dom.apiKeyInput.value = apiKey;
 
     maybePersistConfig();
-    setStatus("Loaded API key/model from file.", "success");
+    setStatus('Loaded API key/model from file.', 'success');
   } catch (error) {
     console.error(error);
-    setStatus("Could not parse the selected file.", "error");
+    setStatus('Could not parse the selected file.', 'error');
   } finally {
-    dom.openrouterFileInput.value = "";
+    dom.openrouterFileInput.value = '';
   }
 }
 
 function parseOpenRouterText(rawText) {
   const modelMatch = rawText.match(/model\s*name\s*:\s*(.+)/i);
   const keyMatch = rawText.match(/api\s*key\s*:\s*(.+)/i);
+  const bareKey = rawText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.startsWith('sk-or-'));
+
   return {
-    model: modelMatch ? modelMatch[1].trim() : "",
-    apiKey: keyMatch ? keyMatch[1].trim() : "",
+    model: modelMatch ? modelMatch[1].trim() : '',
+    apiKey: keyMatch ? keyMatch[1].trim() : bareKey || '',
   };
 }
 
 async function handleStartConversation() {
   const config = readConfig();
   if (!config.apiKey || !config.model) {
-    setStatus("Please enter API key and model first.", "error");
+    setStatus('Please enter API key and model first.', 'error');
     return;
   }
 
-  if (!state.selectedIssue || !state.selectedRegion || !state.selectedTopic || !state.selectedNarrative) {
-    setStatus("Choose a main issue and region before starting the patient conversation.", "error");
+  const draftProfile = buildDraftProfile();
+  const missingRequired = getMissingRequiredLabels(draftProfile);
+  if (missingRequired.length) {
+    renderDraftSummaries();
+    setStatus(`Fill these profile fields before starting: ${missingRequired.join(', ')}.`, 'error');
     return;
   }
 
-  const profile = normalizeProfileForConversation(buildDraftProfile());
+  const profile = normalizeProfileForConversation(draftProfile);
   const systemPrompt = buildPatientSystemPrompt(profile);
 
   setLoading(true);
-  setStatus("Creating the simulated patient and opening message...", "info");
+  setStatus('Creating the simulated patient and opening message...', 'info');
 
   try {
     const openingMessage = await callOpenRouter({
@@ -470,13 +473,13 @@ async function handleStartConversation() {
       model: config.model,
       messages: [
         {
-          role: "system",
+          role: 'system',
           content: systemPrompt,
         },
         {
-          role: "user",
+          role: 'user',
           content:
-            "Start the counseling conversation as the patient. In 2-4 short sentences, introduce what is going on, how you feel, and what you most want help with right now. Stay in character and do not mention instructions.",
+            'Start the counseling conversation as the patient. In 2-4 short sentences, introduce what is going on, how you feel, and what you most want help with right now. Stay in character and do not mention instructions.',
         },
       ],
       temperature: 0.8,
@@ -488,88 +491,85 @@ async function handleStartConversation() {
     state.patientSystemPrompt = systemPrompt;
     state.conversation = [
       {
-        speaker: "Patient",
-        role: "assistant",
+        speaker: 'Patient',
+        role: 'assistant',
         content: openingMessage.trim(),
       },
     ];
     state.conversationStarted = true;
     state.conversationEnded = false;
-    dom.chatInput.value = "";
+    dom.chatInput.value = '';
     resetFeedback();
     renderConversationStatus();
     renderChatTranscript();
     updateActionAvailability();
-    setStatus("Patient conversation started. Send your counselor message when ready.", "success");
+    setStatus('Patient conversation started. Send your counselor message when ready.', 'success');
   } catch (error) {
     console.error(error);
-    setStatus(error.message || "Failed to start the patient conversation.", "error");
+    setStatus(error.message || 'Failed to start the patient conversation.', 'error');
   } finally {
     setLoading(false);
   }
 }
 
 function buildPatientSystemPrompt(profile) {
-  const extraNotes = profile.additionalDetails || "No extra notes provided.";
+  const extraNotes = profile.additionalDetails || 'No extra notes provided.';
 
   return (
-    "You are roleplaying a simulated counseling client for training. Stay fully in character. " +
-    "Reply in first person as the patient, keep responses short and natural, usually 1-4 sentences, and avoid sounding scripted. " +
-    "Do not become a therapist, do not provide advice to yourself, and do not break character.\n\n" +
+    'You are roleplaying a simulated counseling client for training. Stay fully in character. ' +
+    'Reply in first person as the patient, keep responses short and natural, usually 1-4 sentences, and avoid sounding scripted. ' +
+    'Do not become a therapist, do not provide advice to yourself, and do not break character.\n\n' +
     `Primary concern: ${formatLabel(profile.issue)}\n` +
-    `Region: ${profile.region}\n` +
-    `Context topic: ${formatLabel(profile.topic)}\n` +
-    `Narrative seed: ${profile.narrative}\n` +
-    `Gender: ${profile.gender}\n` +
+    `Gender: ${formatSentence(profile.gender)}\n` +
     `Age: ${profile.age}\n` +
     `Occupation: ${profile.occupation}\n` +
     `Severity: ${profile.severity}\n` +
-    `Event: ${profile.event}\n` +
+    `Current event: ${profile.event}\n` +
     `Goal: ${profile.goal}\n` +
     `Additional notes: ${extraNotes}\n\n` +
-    "Conversation style rules:\n" +
-    "- Reveal emotions, stressors, and ambivalence naturally.\n" +
-    "- Be consistent with the profile.\n" +
-    "- Do not solve the issue quickly.\n" +
-    "- If the counselor asks a question, answer as the patient.\n" +
-    "- If the counselor reflects, respond as a patient would in a real short chat.\n" +
-    "- Avoid long monologues."
+    'Conversation style rules:\n' +
+    '- Reveal emotions, stressors, and ambivalence naturally.\n' +
+    '- Be consistent with the profile.\n' +
+    '- Do not solve the issue quickly.\n' +
+    '- If the counselor asks a question, answer as the patient.\n' +
+    '- If the counselor reflects, respond the way a real patient would in a short chat.\n' +
+    '- Avoid long monologues.'
   );
 }
 
 async function handleSendMessage() {
   const config = readConfig();
   if (!config.apiKey || !config.model) {
-    setStatus("Please enter API key and model first.", "error");
+    setStatus('Please enter API key and model first.', 'error');
     return;
   }
 
   if (!state.conversationStarted) {
-    setStatus("Start a patient conversation first.", "error");
+    setStatus('Start a patient conversation first.', 'error');
     return;
   }
 
   if (state.conversationEnded) {
-    setStatus("The conversation has ended. Start a new conversation to continue chatting.", "error");
+    setStatus('The conversation has ended. Start a new conversation to continue chatting.', 'error');
     return;
   }
 
   const counselorMessage = dom.chatInput.value.trim();
   if (!counselorMessage) {
-    setStatus("Type a counselor message before sending.", "error");
+    setStatus('Type a counselor message before sending.', 'error');
     return;
   }
 
   state.conversation.push({
-    speaker: "Counselor",
-    role: "user",
+    speaker: 'Counselor',
+    role: 'user',
     content: counselorMessage,
   });
-  dom.chatInput.value = "";
+  dom.chatInput.value = '';
   renderChatTranscript();
   updateActionAvailability();
   setLoading(true);
-  setStatus("Patient is replying...", "info");
+  setStatus('Patient is replying...', 'info');
 
   try {
     const patientReply = await callOpenRouter({
@@ -582,16 +582,16 @@ async function handleSendMessage() {
     });
 
     state.conversation.push({
-      speaker: "Patient",
-      role: "assistant",
+      speaker: 'Patient',
+      role: 'assistant',
       content: patientReply.trim(),
     });
     renderChatTranscript();
     updateActionAvailability();
-    setStatus("Patient replied. Continue the conversation or end it when ready.", "success");
+    setStatus('Patient replied. Continue the conversation or end it when ready.', 'success');
   } catch (error) {
     console.error(error);
-    setStatus(error.message || "Failed to generate the patient reply.", "error");
+    setStatus(error.message || 'Failed to generate the patient reply.', 'error');
   } finally {
     setLoading(false);
   }
@@ -605,7 +605,7 @@ function buildConversationMessages() {
 
   return [
     {
-      role: "system",
+      role: 'system',
       content: state.patientSystemPrompt,
     },
     ...history,
@@ -614,96 +614,98 @@ function buildConversationMessages() {
 
 function handleEndConversation() {
   if (!state.conversationStarted) {
-    setStatus("There is no conversation to end yet.", "error");
+    setStatus('There is no conversation to end yet.', 'error');
     return;
   }
 
   if (state.conversationEnded) {
-    setStatus("The conversation is already ended. You can start evaluation now.", "success");
+    setStatus('The conversation is already ended. You can start evaluation now.', 'success');
     return;
   }
 
   state.conversationEnded = true;
   renderConversationStatus();
   updateActionAvailability();
-  setStatus("Conversation ended. Start evaluation when you are ready.", "success");
+  setStatus('Conversation ended. Start evaluation when you are ready.', 'success');
 }
 
 async function handleStartEvaluation() {
   const config = readConfig();
   if (!config.apiKey || !config.model) {
-    setStatus("Please enter API key and model first.", "error");
+    setStatus('Please enter API key and model first.', 'error');
     return;
   }
 
   if (!state.conversationStarted) {
-    setStatus("Start a conversation before evaluating.", "error");
+    setStatus('Start a conversation before evaluating.', 'error');
     return;
   }
 
   if (!state.conversationEnded) {
-    setStatus("End the conversation before starting evaluation.", "error");
+    setStatus('End the conversation before starting evaluation.', 'error');
     return;
   }
 
   if (!getCounselorTurns().length) {
-    setStatus("Send at least one counselor message before evaluation.", "error");
+    setStatus('Send at least one counselor message before evaluation.', 'error');
     return;
   }
 
   setLoading(true);
-  setStatus("Evaluating the full conversation across counseling skill rubrics...", "info");
+  setStatus('Evaluating the full conversation across counseling skill rubrics...', 'info');
 
   const transcript = buildTranscriptText();
-  const profile = state.activeProfile || buildDraftProfile();
+  const profile = state.activeProfile || normalizeProfileForConversation(buildDraftProfile());
   const messages = [
     {
-      role: "system",
+      role: 'system',
       content:
-        "You are an expert counseling skills evaluator. Evaluate only the counselor turns. Return JSON only, with no markdown and no extra keys.",
+        'You are an expert counseling skills evaluator. Evaluate only the counselor turns. Return JSON only, with no markdown and no extra keys.',
     },
     {
-      role: "user",
+      role: 'user',
       content:
-        "Evaluate the conversation across four angles: empathy, reflection, open_ended_questions, and affirmations.\n\n" +
-        "Quality levels must be exactly one of: Needs Work, Developing, Effective, Strong.\n\n" +
-        "Use these rubrics:\n" +
-        "Empathy rubrics:\n" +
+        'Evaluate the conversation across four angles: empathy, reflection, open_ended_questions, and affirmations.\n\n' +
+        'Quality levels must be exactly one of: Needs Work, Developing, Effective, Strong.\n\n' +
+        'Use these rubrics:\n' +
+        'Empathy rubrics:\n' +
         "- Names or validates the patient's emotion.\n" +
-        "- Uses a nonjudgmental, supportive tone.\n" +
+        '- Uses a nonjudgmental, supportive tone.\n' +
         "- Stays with the patient's perspective before problem-solving.\n\n" +
-        "Reflection rubrics:\n" +
+        'Reflection rubrics:\n' +
         "- Captures the patient's main meaning or concern.\n" +
-        "- Reflects feeling, need, or tension rather than just facts.\n" +
-        "- Avoids advice-giving or empty parroting.\n\n" +
-        "Open-ended question rubrics:\n" +
-        "- Invites elaboration rather than yes/no answers.\n" +
-        "- Fits the flow of the conversation rather than interrogating.\n" +
-        "- Helps the patient explore meaning, feelings, or goals.\n\n" +
-        "Affirmation rubrics:\n" +
-        "- Recognizes a strength, effort, value, or resilience.\n" +
-        "- Is specific and genuine rather than generic praise.\n" +
-        "- Supports autonomy or self-efficacy.\n\n" +
+        '- Reflects feeling, need, or tension rather than just facts.\n' +
+        '- Avoids advice-giving or empty parroting.\n\n' +
+        'Open-ended question rubrics:\n' +
+        '- Invites elaboration rather than yes/no answers.\n' +
+        '- Fits the flow of the conversation rather than interrogating.\n' +
+        '- Helps the patient explore meaning, feelings, or goals.\n\n' +
+        'Affirmation rubrics:\n' +
+        '- Recognizes a strength, effort, value, or resilience.\n' +
+        '- Is specific and genuine rather than generic praise.\n' +
+        '- Supports autonomy or self-efficacy.\n\n' +
         `Patient profile:\n${formatPersonaSummary(profile)}\n\n` +
         `Conversation transcript:\n${transcript}\n\n` +
-        "Return strict JSON with this shape:\n" +
-        "{\n" +
+        'Return strict JSON with this shape:\n' +
+        '{\n' +
         '  "empathy": {\n' +
         '    "quality_level": "Needs Work|Developing|Effective|Strong",\n' +
         '    "summary": string,\n' +
         '    "rubrics": [\n' +
         '      { "criterion": string, "met": boolean, "evidence": string }\n' +
-        "    ],\n" +
-        '    "suggestion": string\n' +
-        "  },\n" +
+        '    ]\n' +
+        '  },\n' +
         '  "reflection": "same structure as empathy",\n' +
         '  "open_ended_questions": "same structure as empathy",\n' +
-        '  "affirmations": "same structure as empathy"\n' +
-        "}\n\n" +
-        "Rules:\n" +
-        "- Every angle must include exactly three rubric items.\n" +
-        "- Evidence should be short transcript slices or a brief note that evidence is missing.\n" +
-        "- Suggestion should explain what to improve next for that angle.",
+        '  "affirmations": "same structure as empathy",\n' +
+        '  "combined_suggestions": [string, string, string]\n' +
+        '}\n\n' +
+        'Rules:\n' +
+        '- Every angle must include exactly three rubric items.\n' +
+        '- Evidence should be short transcript slices or a brief note that evidence is missing.\n' +
+        '- combined_suggestions must synthesize across angles rather than repeating one angle at a time.\n' +
+        '- combined_suggestions should contain 3 concise coaching suggestions.\n' +
+        '- Do not include markdown.',
     },
   ];
 
@@ -713,16 +715,16 @@ async function handleStartEvaluation() {
       model: config.model,
       messages,
       temperature: 0.2,
-      max_tokens: 1200,
+      max_tokens: 1400,
       requireJson: true,
     });
 
     const parsed = parseJsonFromResponse(rawFeedback);
     renderEvaluationFeedback(parsed);
-    setStatus("Evaluation complete.", "success");
+    setStatus('Evaluation complete.', 'success');
   } catch (error) {
     console.error(error);
-    setStatus(error.message || "Failed to evaluate the conversation.", "error");
+    setStatus(error.message || 'Failed to evaluate the conversation.', 'error');
   } finally {
     setLoading(false);
   }
@@ -731,50 +733,56 @@ async function handleStartEvaluation() {
 function buildTranscriptText() {
   return state.conversation
     .map((turn, index) => `${index + 1}. ${turn.speaker}: ${turn.content}`)
-    .join("\n");
+    .join('\n');
 }
 
 function getCounselorTurns() {
-  return state.conversation.filter((turn) => turn.speaker === "Counselor");
+  return state.conversation.filter((turn) => turn.speaker === 'Counselor');
 }
 
 function renderConversationStatus() {
   if (!state.conversationStarted || !state.activeProfile) {
     dom.conversationStatus.textContent =
-      "No active patient conversation yet. Build a profile and click Start Patient Conversation.";
+      'No active patient conversation yet. Build a profile and click Start Patient Conversation.';
     return;
   }
 
-  const statusText = state.conversationEnded ? "Conversation ended." : "Conversation active.";
+  const statusText = state.conversationEnded ? 'Conversation ended.' : 'Conversation active.';
+  const ageText = state.activeProfile.age ? `${state.activeProfile.age}` : 'age unspecified';
   dom.conversationStatus.textContent =
-    `${statusText} Active patient: ${formatLabel(state.activeProfile.issue)} in ${state.activeProfile.region}, ` +
-    `${formatSentence(state.activeProfile.severity)} severity, event: ${state.activeProfile.event}.`;
+    `${statusText} ${formatLabel(state.activeProfile.issue)}, ${formatSentence(state.activeProfile.severity)} intensity, ` +
+    `${ageText}, ${state.activeProfile.occupation}, current event: ${state.activeProfile.event}.`;
 }
 
 function renderChatTranscript() {
-  dom.chatTranscript.innerHTML = "";
+  dom.chatTranscript.innerHTML = '';
 
   if (!state.conversation.length) {
-    const emptyState = document.createElement("div");
-    emptyState.className = "chat-empty";
-    emptyState.textContent = "No conversation yet.";
+    const emptyState = document.createElement('div');
+    emptyState.className = 'chat-empty';
+    emptyState.textContent = 'No conversation yet.';
     dom.chatTranscript.appendChild(emptyState);
     return;
   }
 
   state.conversation.forEach((turn) => {
-    const message = document.createElement("div");
-    message.className = `chat-message ${turn.speaker === "Counselor" ? "counselor" : "patient"}`;
+    const message = document.createElement('div');
+    const isCounselor = turn.speaker === 'Counselor';
+    message.className = `chat-message ${isCounselor ? 'counselor' : 'patient'}`;
 
-    const role = document.createElement("p");
-    role.className = "chat-role";
-    role.textContent = turn.speaker;
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble';
 
-    const bubble = document.createElement("div");
-    bubble.className = "chat-bubble";
-    bubble.textContent = turn.content;
+    const content = document.createElement('p');
+    content.className = 'chat-text';
+    content.textContent = turn.content;
 
-    message.appendChild(role);
+    const meta = document.createElement('p');
+    meta.className = 'chat-meta';
+    meta.textContent = turn.speaker;
+
+    bubble.appendChild(content);
+    bubble.appendChild(meta);
     message.appendChild(bubble);
     dom.chatTranscript.appendChild(message);
   });
@@ -783,7 +791,7 @@ function renderChatTranscript() {
 }
 
 function renderEvaluationFeedback(rawPayload) {
-  const payload = rawPayload.angles && typeof rawPayload.angles === "object" ? rawPayload.angles : rawPayload;
+  const payload = rawPayload.angles && typeof rawPayload.angles === 'object' ? rawPayload.angles : rawPayload;
 
   Object.keys(ANGLE_CONFIG).forEach((angleKey) => {
     const normalized = normalizeAngleFeedback(payload[angleKey]);
@@ -791,72 +799,87 @@ function renderEvaluationFeedback(rawPayload) {
 
     setQualityChip(angleDom.quality, normalized.qualityLevel);
     angleDom.summary.textContent = normalized.summary;
-    angleDom.suggestion.textContent = normalized.suggestion;
     renderRubricList(angleDom.rubrics, normalized.rubrics);
   });
+
+  dom.combinedSuggestions.textContent = normalizeCombinedSuggestions(
+    rawPayload.combined_suggestions || payload.combined_suggestions,
+  );
 }
 
 function normalizeAngleFeedback(rawAngle) {
-  const safeAngle = rawAngle && typeof rawAngle === "object" ? rawAngle : {};
-  const qualityLevel = String(safeAngle.quality_level || "Needs Work").trim() || "Needs Work";
-  const summary = String(safeAngle.summary || "No summary provided.").trim() || "No summary provided.";
-  const suggestion = String(safeAngle.suggestion || "No suggestion provided.").trim() || "No suggestion provided.";
+  const safeAngle = rawAngle && typeof rawAngle === 'object' ? rawAngle : {};
+  const qualityLevel = String(safeAngle.quality_level || 'Needs Work').trim() || 'Needs Work';
+  const summary = String(safeAngle.summary || 'No summary provided.').trim() || 'No summary provided.';
   const rawRubrics = Array.isArray(safeAngle.rubrics) ? safeAngle.rubrics : [];
   const rubrics = rawRubrics.slice(0, 3).map((rubric) => ({
-    criterion: String(rubric.criterion || "Unnamed rubric").trim() || "Unnamed rubric",
+    criterion: String(rubric.criterion || 'Unnamed rubric').trim() || 'Unnamed rubric',
     met: Boolean(rubric.met),
-    evidence: String(rubric.evidence || "No evidence provided.").trim() || "No evidence provided.",
+    evidence: String(rubric.evidence || 'No evidence provided.').trim() || 'No evidence provided.',
   }));
 
   return {
     qualityLevel,
     summary,
-    suggestion,
     rubrics,
   };
 }
 
+function normalizeCombinedSuggestions(rawSuggestions) {
+  if (Array.isArray(rawSuggestions) && rawSuggestions.length) {
+    return rawSuggestions
+      .map((suggestion, index) => `${index + 1}. ${String(suggestion).trim()}`)
+      .join('\n');
+  }
+
+  if (typeof rawSuggestions === 'string' && rawSuggestions.trim()) {
+    return rawSuggestions.trim();
+  }
+
+  return 'No suggestions yet.';
+}
+
 function setQualityChip(element, qualityLevel) {
   element.textContent = qualityLevel;
-  element.className = "quality-chip";
+  element.className = 'quality-chip';
   element.classList.add(`level-${slugifyQualityLevel(qualityLevel)}`);
 }
 
 function slugifyQualityLevel(qualityLevel) {
   const mapping = {
-    strong: "strong",
-    effective: "effective",
-    developing: "developing",
-    "needs work": "needs-work",
-    "not evaluated": "neutral",
+    strong: 'strong',
+    effective: 'effective',
+    developing: 'developing',
+    'needs work': 'needs-work',
+    'not evaluated': 'neutral',
   };
 
-  const lowered = String(qualityLevel || "").trim().toLowerCase();
-  return mapping[lowered] || "neutral";
+  const lowered = String(qualityLevel || '').trim().toLowerCase();
+  return mapping[lowered] || 'neutral';
 }
 
 function renderRubricList(container, rubrics) {
-  container.innerHTML = "";
+  container.innerHTML = '';
 
   if (!rubrics.length) {
-    container.textContent = "No rubric details yet.";
+    container.textContent = 'No rubric details yet.';
     return;
   }
 
   rubrics.forEach((rubric) => {
-    const item = document.createElement("div");
-    item.className = "rubric-item";
+    const item = document.createElement('div');
+    item.className = 'rubric-item';
 
-    const title = document.createElement("p");
-    title.className = "rubric-title";
+    const title = document.createElement('p');
+    title.className = 'rubric-title';
     title.textContent = rubric.criterion;
 
-    const status = document.createElement("p");
-    status.className = `rubric-status ${rubric.met ? "met" : "not-met"}`;
-    status.textContent = rubric.met ? "Satisfied" : "Not satisfied";
+    const status = document.createElement('p');
+    status.className = `rubric-status ${rubric.met ? 'met' : 'not-met'}`;
+    status.textContent = rubric.met ? 'Satisfied' : 'Not satisfied';
 
-    const evidence = document.createElement("p");
-    evidence.className = "rubric-evidence";
+    const evidence = document.createElement('p');
+    evidence.className = 'rubric-evidence';
     evidence.textContent = `Evidence: ${rubric.evidence}`;
 
     item.appendChild(title);
@@ -869,11 +892,11 @@ function renderRubricList(container, rubrics) {
 function resetFeedback() {
   Object.keys(ANGLE_CONFIG).forEach((angleKey) => {
     const angle = feedbackDom[angleKey];
-    setQualityChip(angle.quality, "Not evaluated");
-    angle.summary.textContent = "Start an evaluation to see the quality classification.";
-    angle.rubrics.textContent = "No rubric details yet.";
-    angle.suggestion.textContent = "No suggestions yet.";
+    setQualityChip(angle.quality, 'Not evaluated');
+    angle.summary.textContent = 'Start an evaluation to see the quality classification.';
+    angle.rubrics.textContent = 'No rubric details yet.';
   });
+  dom.combinedSuggestions.textContent = 'End the conversation and start evaluation to see next-step guidance.';
 }
 
 async function callOpenRouter({ apiKey, model, messages, temperature, max_tokens, requireJson }) {
@@ -887,11 +910,11 @@ async function callOpenRouter({ apiKey, model, messages, temperature, max_tokens
   });
 
   if (!response.ok && requireJson) {
-    const firstError = String(payload.error?.message || "").toLowerCase();
+    const firstError = String(payload.error?.message || '').toLowerCase();
     const responseFormatUnsupported =
-      firstError.includes("response_format") ||
-      firstError.includes("json_object") ||
-      firstError.includes("unsupported");
+      firstError.includes('response_format') ||
+      firstError.includes('json_object') ||
+      firstError.includes('unsupported');
 
     if (responseFormatUnsupported) {
       ({ response, payload } = await postToOpenRouter({
@@ -947,16 +970,16 @@ async function postToOpenRouter({
   };
 
   if (withJsonResponseFormat) {
-    body.response_format = { type: "json_object" };
+    body.response_format = { type: 'json_object' };
   }
 
   const response = await fetch(OPENROUTER_ENDPOINT, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
-      "HTTP-Referer": window.location.href,
-      "X-Title": "Reflection Training Lab",
+      'HTTP-Referer': window.location.href,
+      'X-Title': 'Reflection Training Lab',
     },
     body: JSON.stringify(body),
   });
@@ -969,57 +992,57 @@ function extractTextFromPayload(payload) {
   const message = choice?.message || {};
   const content = message?.content;
 
-  if (typeof content === "string" && content.trim()) {
+  if (typeof content === 'string' && content.trim()) {
     return content.trim();
   }
 
   if (Array.isArray(content)) {
     const joined = content
       .map((part) => {
-        if (typeof part === "string") return part;
-        if (typeof part?.text === "string") return part.text;
-        if (typeof part?.content === "string") return part.content;
-        if (part?.json && typeof part.json === "object") return JSON.stringify(part.json);
-        return "";
+        if (typeof part === 'string') return part;
+        if (typeof part?.text === 'string') return part.text;
+        if (typeof part?.content === 'string') return part.content;
+        if (part?.json && typeof part.json === 'object') return JSON.stringify(part.json);
+        return '';
       })
-      .join("")
+      .join('')
       .trim();
     if (joined) return joined;
   }
 
-  if (content && typeof content === "object") {
-    if (typeof content.text === "string" && content.text.trim()) {
+  if (content && typeof content === 'object') {
+    if (typeof content.text === 'string' && content.text.trim()) {
       return content.text.trim();
     }
     const asJson = JSON.stringify(content);
-    if (asJson && asJson !== "{}") return asJson;
+    if (asJson && asJson !== '{}') return asJson;
   }
 
-  if (typeof choice?.text === "string" && choice.text.trim()) {
+  if (typeof choice?.text === 'string' && choice.text.trim()) {
     return choice.text.trim();
   }
 
   if (Array.isArray(message?.tool_calls)) {
     const args = message.tool_calls
-      .map((toolCall) => toolCall?.function?.arguments || "")
-      .join("")
+      .map((toolCall) => toolCall?.function?.arguments || '')
+      .join('')
       .trim();
     if (args) return args;
   }
 
-  if (typeof message?.reasoning === "string" && message.reasoning.trim()) {
+  if (typeof message?.reasoning === 'string' && message.reasoning.trim()) {
     return message.reasoning.trim();
   }
 
-  return "";
+  return '';
 }
 
 function buildPayloadHint(payload) {
   const choice = payload?.choices?.[0] || {};
   const message = choice?.message || {};
-  const finishReason = choice?.finish_reason ? `finish_reason=${choice.finish_reason}` : "finish_reason=unknown";
+  const finishReason = choice?.finish_reason ? `finish_reason=${choice.finish_reason}` : 'finish_reason=unknown';
   const messageKeys = Object.keys(message);
-  return `(${finishReason}; message_keys=${messageKeys.join(",") || "none"})`;
+  return `(${finishReason}; message_keys=${messageKeys.join(',') || 'none'})`;
 }
 
 function parseJsonFromResponse(rawText) {
@@ -1032,15 +1055,15 @@ function parseJsonFromResponse(rawText) {
     if (fenced) return fenced;
   }
 
-  const firstBrace = rawText.indexOf("{");
-  const lastBrace = rawText.lastIndexOf("}");
+  const firstBrace = rawText.indexOf('{');
+  const lastBrace = rawText.lastIndexOf('}');
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
     const candidate = rawText.slice(firstBrace, lastBrace + 1);
     const partial = tryParseJson(candidate);
     if (partial) return partial;
   }
 
-  throw new Error("Could not parse JSON feedback from model response.");
+  throw new Error('Could not parse JSON feedback from model response.');
 }
 
 function tryParseJson(text) {
@@ -1051,10 +1074,10 @@ function tryParseJson(text) {
   }
 }
 
-function setStatus(message, type = "info") {
+function setStatus(message, type = 'info') {
   dom.statusBox.textContent = message;
-  dom.statusBox.classList.remove("error", "success");
-  if (type === "error" || type === "success") {
+  dom.statusBox.classList.remove('error', 'success');
+  if (type === 'error' || type === 'success') {
     dom.statusBox.classList.add(type);
   }
 }
@@ -1065,23 +1088,18 @@ function setLoading(isLoading) {
 }
 
 function updateActionAvailability() {
-  const hasScenarioSeed =
-    Boolean(state.selectedIssue) &&
-    Boolean(state.selectedRegion) &&
-    Boolean(state.selectedTopic) &&
-    Boolean(state.selectedNarrative);
+  const profile = buildDraftProfile();
+  const canStart = getMissingRequiredLabels(profile).length === 0;
   const hasChatInput = Boolean(dom.chatInput.value.trim());
   const hasCounselorTurns = getCounselorTurns().length > 0;
-  const hasAvailableRegions = getAvailableRegions().length > 0;
 
-  dom.randomSelectionBtn.disabled = state.isLoading || !state.selectedIssue || !hasAvailableRegions;
-  dom.startConversationBtn.disabled = state.isLoading || !hasScenarioSeed;
+  dom.startConversationBtn.disabled = state.isLoading || !canStart;
   dom.sendMessageBtn.disabled = state.isLoading || !state.conversationStarted || state.conversationEnded || !hasChatInput;
   dom.endConversationBtn.disabled = state.isLoading || !state.conversationStarted || state.conversationEnded;
   dom.startEvaluationBtn.disabled =
     state.isLoading || !state.conversationStarted || !state.conversationEnded || !hasCounselorTurns;
   dom.chatInput.disabled = state.isLoading || !state.conversationStarted || state.conversationEnded;
-  dom.startConversationBtn.textContent = state.conversationStarted ? "Start New Patient Conversation" : "Start Patient Conversation";
+  dom.startConversationBtn.textContent = state.conversationStarted ? 'Start New Patient Conversation' : 'Start Patient Conversation';
 }
 
 function readConfig() {
@@ -1118,22 +1136,18 @@ function loadConfigFromStorage() {
     if (parsed.model) dom.modelInput.value = parsed.model;
     dom.rememberToggle.checked = Boolean(parsed.remember);
   } catch (error) {
-    console.warn("Failed to load local config.", error);
+    console.warn('Failed to load local config.', error);
   }
 }
 
 function formatLabel(value) {
-  return String(value || "")
-    .replace(/_/g, " ")
+  return String(value || '')
+    .replace(/_/g, ' ')
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function formatSentence(value) {
-  const text = String(value || "").trim();
-  if (!text) return "";
+  const text = String(value || '').trim();
+  if (!text) return '';
   return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
-function sample(items) {
-  return items[Math.floor(Math.random() * items.length)];
 }
