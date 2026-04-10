@@ -109,6 +109,9 @@ const dom = {
   endConversationBtn: document.getElementById('endConversationBtn'),
   startEvaluationBtn: document.getElementById('startEvaluationBtn'),
   combinedSuggestions: document.getElementById('combinedSuggestions'),
+  statusBadge: document.getElementById('statusBadge'),
+  statusTitle: document.getElementById('statusTitle'),
+  statusMessage: document.getElementById('statusMessage'),
   statusBox: document.getElementById('statusBox'),
 };
 
@@ -149,11 +152,11 @@ async function init() {
     await loadMentalBank();
     renderIssueButtons();
     updateActionAvailability();
-    setStatus('Pick a concern and fill the patient profile, then start the conversation.', 'info');
+    setStatus('Pick a concern and fill the patient profile, then start the conversation.', 'info', 'Ready');
   } catch (error) {
     console.error(error);
     dom.mainIssueGrid.textContent = 'Issue bank failed to load.';
-    setStatus('Could not load world_mental_bank.json. Serve the folder with a local web server and try again.', 'error');
+    setStatus('Could not load world_mental_bank.json. Serve the folder with a local web server and try again.', 'error', 'Setup Error');
   }
 }
 
@@ -283,12 +286,83 @@ function renderDraftSummaries() {
   const profile = buildDraftProfile();
   const completeness = getProfileCompleteness(profile);
 
-  dom.personaSummary.textContent = formatPersonaSummary(profile);
+  renderPersonaSummary(profile);
   dom.completionBadge.textContent = `${completeness.completedCount} / ${completeness.essentials.length} essentials filled`;
   dom.completionHint.textContent = buildCompletionHint(completeness);
 
   renderProfileHints(profile, completeness);
   renderProfileChecklist(profile);
+}
+
+function renderPersonaSummary(profile) {
+  const rows = [
+    {
+      label: 'Main issue',
+      value: profile.issue ? formatLabel(profile.issue) : 'Not selected yet',
+      placeholder: !profile.issue,
+    },
+    {
+      label: 'Identity',
+      value: [
+        profile.gender !== 'unspecified' ? formatSentence(profile.gender) : 'Gender not set',
+        profile.age ? `${profile.age} years old` : 'Age not set',
+        profile.occupation || 'Occupation not set',
+      ],
+      tags: true,
+    },
+    {
+      label: 'Severity',
+      value: formatSentence(profile.severity || 'moderate'),
+    },
+    {
+      label: 'Current event',
+      value: profile.event || "Add the patient's current stressor or event.",
+      placeholder: !profile.event,
+    },
+    {
+      label: 'Goal',
+      value: profile.goal || 'Add what the patient wants help with.',
+      placeholder: !profile.goal,
+    },
+    {
+      label: 'Additional notes',
+      value: profile.additionalDetails || 'No extra notes yet.',
+      placeholder: !profile.additionalDetails,
+    },
+  ];
+
+  dom.personaSummary.innerHTML = '';
+
+  rows.forEach((row) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'snapshot-row';
+
+    const label = document.createElement('p');
+    label.className = 'snapshot-label';
+    label.textContent = row.label;
+
+    const valueContainer = document.createElement('div');
+    valueContainer.className = 'snapshot-value';
+    if (row.placeholder) {
+      valueContainer.classList.add('is-placeholder');
+    }
+
+    if (row.tags) {
+      valueContainer.classList.add('snapshot-tags');
+      row.value.forEach((itemText) => {
+        const tag = document.createElement('span');
+        tag.className = 'snapshot-tag';
+        tag.textContent = itemText;
+        valueContainer.appendChild(tag);
+      });
+    } else {
+      valueContainer.textContent = row.value;
+    }
+
+    wrapper.appendChild(label);
+    wrapper.appendChild(valueContainer);
+    dom.personaSummary.appendChild(wrapper);
+  });
 }
 
 function buildCompletionHint(completeness) {
@@ -423,10 +497,10 @@ async function handleOpenRouterFile(event) {
     if (apiKey) dom.apiKeyInput.value = apiKey;
 
     maybePersistConfig();
-    setStatus('Loaded API key/model from file.', 'success');
+    setStatus('Loaded API key and model from file.', 'success', 'Config Loaded');
   } catch (error) {
     console.error(error);
-    setStatus('Could not parse the selected file.', 'error');
+    setStatus('Could not parse the selected file. Check that it contains a valid model name and API key.', 'error', 'File Error');
   } finally {
     dom.openrouterFileInput.value = '';
   }
@@ -449,7 +523,7 @@ function parseOpenRouterText(rawText) {
 async function handleStartConversation() {
   const config = readConfig();
   if (!config.apiKey || !config.model) {
-    setStatus('Please enter API key and model first.', 'error');
+    setStatus('Please enter API key and model first.', 'error', 'Missing Config');
     return;
   }
 
@@ -457,7 +531,7 @@ async function handleStartConversation() {
   const missingRequired = getMissingRequiredLabels(draftProfile);
   if (missingRequired.length) {
     renderDraftSummaries();
-    setStatus(`Fill these profile fields before starting: ${missingRequired.join(', ')}.`, 'error');
+    setStatus(`Fill these profile fields before starting: ${missingRequired.join(', ')}.`, 'error', 'Missing Profile Info');
     return;
   }
 
@@ -465,7 +539,7 @@ async function handleStartConversation() {
   const systemPrompt = buildPatientSystemPrompt(profile);
 
   setLoading(true);
-  setStatus('Creating the simulated patient and opening message...', 'info');
+  setStatus('Creating the simulated patient and drafting the opening message...', 'info', 'Generating Patient');
 
   try {
     const openingMessage = await callOpenRouter({
@@ -503,10 +577,10 @@ async function handleStartConversation() {
     renderConversationStatus();
     renderChatTranscript();
     updateActionAvailability();
-    setStatus('Patient conversation started. Send your counselor message when ready.', 'success');
+    setStatus('Patient conversation started. Send your counselor message when ready.', 'success', 'Patient Ready');
   } catch (error) {
     console.error(error);
-    setStatus(error.message || 'Failed to start the patient conversation.', 'error');
+    setStatus(formatRuntimeError(error, 'Failed to start the patient conversation.'), 'error', 'Generation Error');
   } finally {
     setLoading(false);
   }
@@ -540,23 +614,23 @@ function buildPatientSystemPrompt(profile) {
 async function handleSendMessage() {
   const config = readConfig();
   if (!config.apiKey || !config.model) {
-    setStatus('Please enter API key and model first.', 'error');
+    setStatus('Please enter API key and model first.', 'error', 'Missing Config');
     return;
   }
 
   if (!state.conversationStarted) {
-    setStatus('Start a patient conversation first.', 'error');
+    setStatus('Start a patient conversation first.', 'error', 'No Active Chat');
     return;
   }
 
   if (state.conversationEnded) {
-    setStatus('The conversation has ended. Start a new conversation to continue chatting.', 'error');
+    setStatus('The conversation has ended. Start a new conversation to continue chatting.', 'error', 'Chat Closed');
     return;
   }
 
   const counselorMessage = dom.chatInput.value.trim();
   if (!counselorMessage) {
-    setStatus('Type a counselor message before sending.', 'error');
+    setStatus('Type a counselor message before sending.', 'error', 'Empty Message');
     return;
   }
 
@@ -569,7 +643,7 @@ async function handleSendMessage() {
   renderChatTranscript();
   updateActionAvailability();
   setLoading(true);
-  setStatus('Patient is replying...', 'info');
+  setStatus('The simulated patient is generating a reply...', 'info', 'Generating Reply');
 
   try {
     const patientReply = await callOpenRouter({
@@ -588,10 +662,10 @@ async function handleSendMessage() {
     });
     renderChatTranscript();
     updateActionAvailability();
-    setStatus('Patient replied. Continue the conversation or end it when ready.', 'success');
+    setStatus('Patient replied. Continue the conversation or end it when ready.', 'success', 'Reply Received');
   } catch (error) {
     console.error(error);
-    setStatus(error.message || 'Failed to generate the patient reply.', 'error');
+    setStatus(formatRuntimeError(error, 'Failed to generate the patient reply.'), 'error', 'Reply Error');
   } finally {
     setLoading(false);
   }
@@ -614,45 +688,45 @@ function buildConversationMessages() {
 
 function handleEndConversation() {
   if (!state.conversationStarted) {
-    setStatus('There is no conversation to end yet.', 'error');
+    setStatus('There is no conversation to end yet.', 'error', 'No Active Chat');
     return;
   }
 
   if (state.conversationEnded) {
-    setStatus('The conversation is already ended. You can start evaluation now.', 'success');
+    setStatus('The conversation is already ended. You can start evaluation now.', 'success', 'Already Ended');
     return;
   }
 
   state.conversationEnded = true;
   renderConversationStatus();
   updateActionAvailability();
-  setStatus('Conversation ended. Start evaluation when you are ready.', 'success');
+  setStatus('Conversation ended. Start evaluation when you are ready.', 'success', 'Conversation Closed');
 }
 
 async function handleStartEvaluation() {
   const config = readConfig();
   if (!config.apiKey || !config.model) {
-    setStatus('Please enter API key and model first.', 'error');
+    setStatus('Please enter API key and model first.', 'error', 'Missing Config');
     return;
   }
 
   if (!state.conversationStarted) {
-    setStatus('Start a conversation before evaluating.', 'error');
+    setStatus('Start a conversation before evaluating.', 'error', 'No Conversation');
     return;
   }
 
   if (!state.conversationEnded) {
-    setStatus('End the conversation before starting evaluation.', 'error');
+    setStatus('End the conversation before starting evaluation.', 'error', 'Conversation Still Open');
     return;
   }
 
   if (!getCounselorTurns().length) {
-    setStatus('Send at least one counselor message before evaluation.', 'error');
+    setStatus('Send at least one counselor message before evaluation.', 'error', 'Nothing To Evaluate');
     return;
   }
 
   setLoading(true);
-  setStatus('Evaluating the full conversation across counseling skill rubrics...', 'info');
+  setStatus('Evaluating the full conversation across empathy, reflection, questions, and affirmations...', 'info', 'Running Evaluation');
 
   const transcript = buildTranscriptText();
   const profile = state.activeProfile || normalizeProfileForConversation(buildDraftProfile());
@@ -721,10 +795,10 @@ async function handleStartEvaluation() {
 
     const parsed = parseJsonFromResponse(rawFeedback);
     renderEvaluationFeedback(parsed);
-    setStatus('Evaluation complete.', 'success');
+    setStatus('Evaluation complete. Open any factor card to review the rubric details and evidence.', 'success', 'Evaluation Ready');
   } catch (error) {
     console.error(error);
-    setStatus(error.message || 'Failed to evaluate the conversation.', 'error');
+    setStatus(formatRuntimeError(error, 'Failed to evaluate the conversation.'), 'error', 'Evaluation Error');
   } finally {
     setLoading(false);
   }
@@ -879,12 +953,17 @@ function renderRubricList(container, rubrics) {
     status.textContent = rubric.met ? 'Satisfied' : 'Not satisfied';
 
     const evidence = document.createElement('p');
-    evidence.className = 'rubric-evidence';
-    evidence.textContent = `Evidence: ${rubric.evidence}`;
+    evidence.className = 'rubric-evidence-label';
+    evidence.textContent = 'Evidence slice';
+
+    const evidenceBox = document.createElement('div');
+    evidenceBox.className = 'rubric-evidence';
+    evidenceBox.textContent = rubric.evidence;
 
     item.appendChild(title);
     item.appendChild(status);
     item.appendChild(evidence);
+    item.appendChild(evidenceBox);
     container.appendChild(item);
   });
 }
@@ -1074,12 +1153,48 @@ function tryParseJson(text) {
   }
 }
 
-function setStatus(message, type = 'info') {
-  dom.statusBox.textContent = message;
-  dom.statusBox.classList.remove('error', 'success');
-  if (type === 'error' || type === 'success') {
-    dom.statusBox.classList.add(type);
+function formatRuntimeError(error, fallbackMessage) {
+  const rawMessage = String(error?.message || '').trim();
+  if (!rawMessage) return fallbackMessage;
+
+  if (rawMessage.includes('Could not parse JSON feedback')) {
+    return 'The evaluation finished, but the model response was not in a readable JSON format. Please try evaluation again.';
   }
+
+  if (rawMessage.includes('OpenRouter returned no message content')) {
+    return 'The model returned an empty response. Please try again.';
+  }
+
+  return rawMessage;
+}
+
+function setStatus(message, type = 'info', title = '') {
+  const resolvedTitle =
+    title ||
+    (type === 'error'
+      ? 'Action Needed'
+      : type === 'success'
+        ? 'Completed'
+        : state.isLoading
+          ? 'Working'
+          : 'Status');
+
+  const badgeText =
+    type === 'error'
+      ? 'Error'
+      : type === 'success'
+        ? 'Ready'
+        : state.isLoading
+          ? 'Running'
+          : 'System';
+
+  dom.statusBadge.textContent = badgeText;
+  dom.statusTitle.textContent = resolvedTitle;
+  dom.statusMessage.textContent = message;
+  dom.statusBox.classList.remove('info', 'error', 'success', 'is-loading');
+  dom.statusBox.classList.add(type);
+  dom.statusBox.classList.toggle('is-loading', type === 'info' && state.isLoading);
+  dom.statusBox.setAttribute('aria-busy', String(type === 'info' && state.isLoading));
 }
 
 function setLoading(isLoading) {

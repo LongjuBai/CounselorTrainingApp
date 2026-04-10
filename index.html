@@ -56,6 +56,14 @@
         </div>
       </details>
 
+      <section id="statusBox" class="status info" role="status" aria-live="polite">
+        <div id="statusBadge" class="status-badge">System</div>
+        <div class="status-copy">
+          <p id="statusTitle" class="status-title">Ready</p>
+          <p id="statusMessage" class="status-message">Pick a concern and fill the patient profile, then start the conversation.</p>
+        </div>
+      </section>
+
       <section class="panel">
         <h2>1. Patient Profile Studio</h2>
         <p class="muted">
@@ -182,9 +190,9 @@
             <p class="muted small">
               This is the draft profile the simulated patient will use when the conversation starts.
             </p>
-            <p id="personaSummary" class="selection-summary">
+            <div id="personaSummary" class="selection-summary">
               Complete the builder to preview the draft patient persona.
-            </p>
+            </div>
             <div class="persona-missing">
               <h3>Still worth filling</h3>
               <ul id="profileChecklist" class="profile-checklist">
@@ -302,8 +310,6 @@
           </article>
         </div>
       </section>
-
-      <p id="statusBox" class="status" role="status" aria-live="polite"></p>
 
       <footer class="footer-note">
         This tool is for training practice, not emergency or crisis support.
