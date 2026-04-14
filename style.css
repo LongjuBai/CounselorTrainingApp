@@ -557,6 +557,10 @@ summary:focus-visible {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
+.builder-subcard-wide {
+  grid-column: 1 / -1;
+}
+
 .profile-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
