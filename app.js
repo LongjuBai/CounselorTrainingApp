@@ -76,6 +76,121 @@ const PROFILE_ESSENTIALS = [
 
 const REQUIRED_PROFILE_KEYS = ['issue', 'event', 'goal'];
 
+const PRESET_PATIENTS = [
+  {
+    id: 'maya-finals',
+    name: 'Maya',
+    issue: 'anxiety',
+    gender: 'woman',
+    age: '21',
+    occupation: 'college student',
+    severity: 'moderate',
+    event: 'Final exams are close, and she has started losing sleep before classes and skipping meals when she feels overwhelmed.',
+    goal: 'sleep more consistently and feel less panicked before school',
+    additionalDetails: 'High-achieving, first-generation college student, embarrassed that she is struggling, and hesitant to disappoint her family.',
+    lifeStage: 'young_adult',
+    tags: ['college', 'sleep', 'performance pressure'],
+  },
+  {
+    id: 'marcus-drinking',
+    name: 'Marcus',
+    issue: 'substance_use',
+    gender: 'man',
+    age: '42',
+    occupation: 'warehouse supervisor',
+    severity: 'moderate',
+    event: 'He has been drinking more after work since a recent separation and is starting to notice arguments with his sister about it.',
+    goal: 'understand whether his drinking is becoming a real problem and regain control',
+    additionalDetails: 'Proud, guarded, and more comfortable talking about stress than sadness. Does not want to feel judged or labeled.',
+    lifeStage: 'adult',
+    tags: ['alcohol use', 'family tension', 'ambivalence'],
+  },
+  {
+    id: 'elena-separation',
+    name: 'Elena',
+    issue: 'relationship_issues',
+    gender: 'woman',
+    age: '36',
+    occupation: 'elementary school teacher',
+    severity: 'moderate',
+    event: 'She recently separated from her partner and feels lonely at home after years of building her life around the relationship.',
+    goal: 'feel less stuck in grief and stop blaming herself for everything',
+    additionalDetails: 'Warm and reflective, but highly self-critical. Wants support without being rushed into dating or quick solutions.',
+    lifeStage: 'adult',
+    tags: ['breakup', 'loneliness', 'self-blame'],
+  },
+  {
+    id: 'darius-burnout',
+    name: 'Darius',
+    issue: 'depression',
+    gender: 'man',
+    age: '17',
+    occupation: 'high school student',
+    severity: 'moderate',
+    event: 'He has stopped turning in assignments, sleeps at odd hours, and feels numb after withdrawing from friends for months.',
+    goal: 'feel motivated again and stop disappointing the people around him',
+    additionalDetails: 'Answers briefly at first, often says he is just tired, and is unsure whether what he feels counts as depression.',
+    lifeStage: 'teen',
+    tags: ['motivation', 'school', 'withdrawal'],
+  },
+  {
+    id: 'priya-accident',
+    name: 'Priya',
+    issue: 'trauma',
+    gender: 'woman',
+    age: '31',
+    occupation: 'software engineer',
+    severity: 'moderate',
+    event: 'After a recent car accident, she keeps replaying the moment in her head and avoids driving whenever possible.',
+    goal: 'feel safer in her body and stop getting flooded by panic on the road',
+    additionalDetails: 'Analytical and articulate, but visibly tense when talking about the crash. Wants control over her reactions.',
+    lifeStage: 'adult',
+    tags: ['panic', 'avoidance', 'accident'],
+  },
+  {
+    id: 'naomi-overload',
+    name: 'Naomi',
+    issue: 'stress',
+    gender: 'nonbinary',
+    age: '28',
+    occupation: 'ICU nurse',
+    severity: 'severe',
+    event: 'Back-to-back shifts and family caregiving demands have left them feeling wired, irritable, and close to burnout.',
+    goal: 'find a way to slow down without feeling like they are failing everyone',
+    additionalDetails: 'Quick thinker, dry sense of humor, and used to being the capable one. Tends to minimize their own distress.',
+    lifeStage: 'adult',
+    tags: ['burnout', 'caregiving', 'healthcare'],
+  },
+  {
+    id: 'rosa-empty-nest',
+    name: 'Rosa',
+    issue: 'depression',
+    gender: 'woman',
+    age: '63',
+    occupation: 'retired bookkeeper',
+    severity: 'mild',
+    event: 'Since her youngest child moved away, the house feels painfully quiet and she has started questioning her purpose day to day.',
+    goal: 'feel connected again and rebuild a sense of meaning',
+    additionalDetails: 'Soft-spoken, reflective, and worried that she sounds ungrateful when she talks about loneliness.',
+    lifeStage: 'older_adult',
+    tags: ['loneliness', 'life transition', 'purpose'],
+  },
+  {
+    id: 'andre-arguments',
+    name: 'Andre',
+    issue: 'relationship_issues',
+    gender: 'man',
+    age: '27',
+    occupation: 'restaurant manager',
+    severity: 'moderate',
+    event: 'He and his partner keep having the same escalating argument about trust, and he is scared the relationship is about to end.',
+    goal: 'understand his own reactions and communicate without shutting down',
+    additionalDetails: 'Protective, reactive under stress, and more comfortable talking about anger than vulnerability.',
+    lifeStage: 'young_adult',
+    tags: ['conflict', 'trust', 'communication'],
+  },
+];
+
 const dom = {
   apiKeyInput: document.getElementById('apiKeyInput'),
   modelInput: document.getElementById('modelInput'),
@@ -85,6 +200,11 @@ const dom = {
   completionBadge: document.getElementById('completionBadge'),
   completionHint: document.getElementById('completionHint'),
   issueHint: document.getElementById('issueHint'),
+  presetIssueFilter: document.getElementById('presetIssueFilter'),
+  presetSeverityFilter: document.getElementById('presetSeverityFilter'),
+  presetLifeStageFilter: document.getElementById('presetLifeStageFilter'),
+  presetCardsGrid: document.getElementById('presetCardsGrid'),
+  clearPresetFiltersBtn: document.getElementById('clearPresetFiltersBtn'),
   genderSelect: document.getElementById('genderSelect'),
   genderHint: document.getElementById('genderHint'),
   ageInput: document.getElementById('ageInput'),
@@ -130,6 +250,7 @@ const state = {
   mentalBank: {},
   issueOrder: [],
   selectedIssue: '',
+  selectedPresetId: '',
   conversation: [],
   conversationStarted: false,
   conversationEnded: false,
@@ -151,6 +272,8 @@ async function init() {
   try {
     await loadMentalBank();
     renderIssueButtons();
+    renderPresetFilters();
+    renderPresetCards();
     updateActionAvailability();
     setStatus('Pick a concern and fill the patient profile, then start the conversation.', 'info', 'Ready');
   } catch (error) {
@@ -166,6 +289,10 @@ function bindEventListeners() {
   dom.sendMessageBtn.addEventListener('click', handleSendMessage);
   dom.endConversationBtn.addEventListener('click', handleEndConversation);
   dom.startEvaluationBtn.addEventListener('click', handleStartEvaluation);
+  dom.presetIssueFilter.addEventListener('change', renderPresetCards);
+  dom.presetSeverityFilter.addEventListener('change', renderPresetCards);
+  dom.presetLifeStageFilter.addEventListener('change', renderPresetCards);
+  dom.clearPresetFiltersBtn.addEventListener('click', clearPresetFilters);
   dom.apiKeyInput.addEventListener('input', maybePersistConfig);
   dom.modelInput.addEventListener('input', maybePersistConfig);
   dom.rememberToggle.addEventListener('change', maybePersistConfig);
@@ -217,10 +344,145 @@ function renderIssueButtons() {
 
 function handleIssueSelect(issueKey) {
   state.selectedIssue = issueKey;
+  state.selectedPresetId = '';
   updateIssueButtons();
+  renderPresetCards();
   renderDraftSummaries();
   updateActionAvailability();
   setStatus(`Main issue selected: ${formatLabel(issueKey)}. Finish the patient profile when ready.`, 'success');
+}
+
+function renderPresetFilters() {
+  populateFilterSelect(dom.presetIssueFilter, state.issueOrder, 'All issues', formatLabel);
+  populateFilterSelect(dom.presetSeverityFilter, uniquePresetValues('severity'), 'All severities', formatSentence);
+  populateFilterSelect(dom.presetLifeStageFilter, uniquePresetValues('lifeStage'), 'All life stages', formatLabel);
+}
+
+function populateFilterSelect(selectElement, values, defaultLabel, formatter) {
+  const currentValue = selectElement.value;
+  selectElement.innerHTML = '';
+
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '';
+  defaultOption.textContent = defaultLabel;
+  selectElement.appendChild(defaultOption);
+
+  values.forEach((value) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = formatter(value);
+    selectElement.appendChild(option);
+  });
+
+  selectElement.value = values.includes(currentValue) ? currentValue : '';
+}
+
+function uniquePresetValues(key) {
+  return [...new Set(PRESET_PATIENTS.map((patient) => patient[key]).filter(Boolean))];
+}
+
+function clearPresetFilters() {
+  dom.presetIssueFilter.value = '';
+  dom.presetSeverityFilter.value = '';
+  dom.presetLifeStageFilter.value = '';
+  renderPresetCards();
+}
+
+function renderPresetCards() {
+  dom.presetCardsGrid.innerHTML = '';
+
+  const filteredCards = PRESET_PATIENTS.filter((card) => {
+    const issueMatches = !dom.presetIssueFilter.value || card.issue === dom.presetIssueFilter.value;
+    const severityMatches = !dom.presetSeverityFilter.value || card.severity === dom.presetSeverityFilter.value;
+    const lifeStageMatches = !dom.presetLifeStageFilter.value || card.lifeStage === dom.presetLifeStageFilter.value;
+    return issueMatches && severityMatches && lifeStageMatches;
+  });
+
+  if (!filteredCards.length) {
+    const emptyState = document.createElement('div');
+    emptyState.className = 'preset-empty';
+    emptyState.textContent = 'No preset patients match the current filters.';
+    dom.presetCardsGrid.appendChild(emptyState);
+    return;
+  }
+
+  filteredCards.forEach((card) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'preset-card';
+    if (card.id === state.selectedPresetId) {
+      button.classList.add('is-active');
+    }
+    button.addEventListener('click', () => applyPresetPatient(card));
+
+    const topRow = document.createElement('div');
+    topRow.className = 'preset-card-top';
+
+    const headingWrap = document.createElement('div');
+    const name = document.createElement('p');
+    name.className = 'preset-name';
+    name.textContent = card.name;
+    const meta = document.createElement('p');
+    meta.className = 'preset-meta';
+    meta.textContent = `${card.age} • ${card.occupation}`;
+    headingWrap.appendChild(name);
+    headingWrap.appendChild(meta);
+
+    const severityPill = document.createElement('span');
+    severityPill.className = `preset-severity severity-${card.severity}`;
+    severityPill.textContent = formatSentence(card.severity);
+
+    topRow.appendChild(headingWrap);
+    topRow.appendChild(severityPill);
+
+    const issue = document.createElement('p');
+    issue.className = 'preset-issue';
+    issue.textContent = formatLabel(card.issue);
+
+    const description = document.createElement('p');
+    description.className = 'preset-description';
+    description.textContent = card.event;
+
+    const tags = document.createElement('div');
+    tags.className = 'preset-tags';
+
+    [formatLabel(card.lifeStage), ...card.tags].forEach((tagText) => {
+      const tag = document.createElement('span');
+      tag.className = 'preset-tag';
+      tag.textContent = tagText;
+      tags.appendChild(tag);
+    });
+
+    const action = document.createElement('p');
+    action.className = 'preset-action';
+    action.textContent = 'Click to load this patient into the builder';
+
+    button.appendChild(topRow);
+    button.appendChild(issue);
+    button.appendChild(description);
+    button.appendChild(tags);
+    button.appendChild(action);
+    dom.presetCardsGrid.appendChild(button);
+  });
+}
+
+function applyPresetPatient(card) {
+  state.selectedPresetId = card.id;
+  state.selectedIssue = card.issue;
+
+  dom.genderSelect.value = card.gender;
+  dom.ageInput.value = card.age;
+  dom.occupationInput.value = card.occupation;
+  dom.severitySelect.value = card.severity;
+  dom.eventInput.value = card.event;
+  dom.goalInput.value = card.goal;
+  dom.additionalDetailsInput.value = card.additionalDetails;
+
+  updateIssueButtons();
+  renderPresetCards();
+  renderDraftSummaries();
+  updateActionAvailability();
+  setStatus(`${card.name} was loaded into the builder. You can edit any detail before starting the chat.`, 'success', 'Preset Loaded');
 }
 
 function updateIssueButtons() {
@@ -743,21 +1005,29 @@ async function handleStartEvaluation() {
         'Quality levels must be exactly one of: Needs Work, Developing, Effective, Strong.\n\n' +
         'Use these rubrics:\n' +
         'Empathy rubrics:\n' +
-        "- Names or validates the patient's emotion.\n" +
-        '- Uses a nonjudgmental, supportive tone.\n' +
-        "- Stays with the patient's perspective before problem-solving.\n\n" +
+        "- Accuracy of emotional identification: Does the counselor correctly name or reflect the client's emotional state, rather than projecting or guessing incorrectly?\n" +
+        "- Timing and responsiveness: Does the empathic response come at a natural moment, showing the counselor is tracking the client's experience in real time?\n" +
+        '- Depth matching: Does the counselor match the intensity of what the client is expressing, neither minimizing nor dramatizing the feeling?\n' +
+        "- Verbal and nonverbal congruence: Do the counselor's tone, pace, and body language align with the empathic words being used?\n" +
+        '- Impact on the client: Does the empathic statement visibly help the client feel understood, as evidenced by continued exploration, visible relief, or verbal confirmation?\n\n' +
         'Reflection rubrics:\n' +
-        "- Captures the patient's main meaning or concern.\n" +
-        '- Reflects feeling, need, or tension rather than just facts.\n' +
-        '- Avoids advice-giving or empty parroting.\n\n' +
+        '- Accuracy of content: Does the reflection faithfully capture what the client said without distorting, adding, or omitting key meaning?\n' +
+        '- Balance of simple and complex reflections: Does the counselor go beyond parroting to add meaning, underscore feeling, or make implicit content explicit?\n' +
+        '- Strategic direction: Does the reflection steer toward change talk, values, or motivation rather than simply restating the problem or sustain talk?\n' +
+        '- Continuity and flow: Does the reflection land smoothly in conversation, encouraging the client to keep exploring rather than disrupting their train of thought?\n' +
+        '- Ratio of reflections to questions: Does the counselor rely more on reflections than questions, maintaining a reflection-to-question ratio of at least 1:1 or higher?\n\n' +
         'Open-ended question rubrics:\n' +
-        '- Invites elaboration rather than yes/no answers.\n' +
-        '- Fits the flow of the conversation rather than interrogating.\n' +
-        '- Helps the patient explore meaning, feelings, or goals.\n\n' +
+        '- Genuinely open structure: Is the question truly open, inviting narrative, elaboration, or exploration rather than a yes or no answer or a leading question disguised as open?\n' +
+        '- Relevance and timing: Does the question connect meaningfully to what the client just said, rather than abruptly shifting the topic or following a rigid agenda?\n' +
+        "- Evocative quality: Does the question draw out the client's own motivations, values, or feelings rather than gathering purely factual or logistical information?\n" +
+        '- Economy and clarity: Is the question concise and easy to understand, avoiding compound or multi-part constructions that overwhelm the client?\n' +
+        "- Promotes client agency: Does the question position the client as the expert on their own life, inviting self-assessment and self-directed thinking rather than leading toward the counselor's preferred answer?\n\n" +
         'Affirmation rubrics:\n' +
-        '- Recognizes a strength, effort, value, or resilience.\n' +
-        '- Is specific and genuine rather than generic praise.\n' +
-        '- Supports autonomy or self-efficacy.\n\n' +
+        '- Specificity: Does the affirmation point to a concrete strength, effort, or quality the client has demonstrated, rather than offering vague praise like good job?\n' +
+        '- Authenticity: Does the affirmation sound genuine and grounded in what the client actually shared, avoiding flattery or formulaic compliments?\n' +
+        "- Focus on character and effort over outcome: Does the affirmation highlight the client's values, courage, persistence, or intention rather than simply congratulating a result?\n" +
+        '- Appropriate frequency: Are affirmations used selectively enough to carry weight, rather than so frequently that they feel hollow or patronizing?\n' +
+        '- Alignment with client self-concept: Does the affirmation resonate with something the client can recognize in themselves, rather than imposing an identity that feels foreign or pressured?\n\n' +
         `Patient profile:\n${formatPersonaSummary(profile)}\n\n` +
         `Conversation transcript:\n${transcript}\n\n` +
         'Return strict JSON with this shape:\n' +
@@ -775,7 +1045,8 @@ async function handleStartEvaluation() {
         '  "combined_suggestions": [string, string, string]\n' +
         '}\n\n' +
         'Rules:\n' +
-        '- Every angle must include exactly three rubric items.\n' +
+        '- Every angle must include exactly five rubric items.\n' +
+        '- Keep the rubric items aligned with the five criteria listed for that angle.\n' +
         '- Evidence should be short transcript slices or a brief note that evidence is missing.\n' +
         '- combined_suggestions must synthesize across angles rather than repeating one angle at a time.\n' +
         '- combined_suggestions should contain 3 concise coaching suggestions.\n' +
@@ -789,7 +1060,7 @@ async function handleStartEvaluation() {
       model: config.model,
       messages,
       temperature: 0.2,
-      max_tokens: 1400,
+      max_tokens: 2200,
       requireJson: true,
     });
 
@@ -886,7 +1157,7 @@ function normalizeAngleFeedback(rawAngle) {
   const qualityLevel = String(safeAngle.quality_level || 'Needs Work').trim() || 'Needs Work';
   const summary = String(safeAngle.summary || 'No summary provided.').trim() || 'No summary provided.';
   const rawRubrics = Array.isArray(safeAngle.rubrics) ? safeAngle.rubrics : [];
-  const rubrics = rawRubrics.slice(0, 3).map((rubric) => ({
+  const rubrics = rawRubrics.slice(0, 5).map((rubric) => ({
     criterion: String(rubric.criterion || 'Unnamed rubric').trim() || 'Unnamed rubric',
     met: Boolean(rubric.met),
     evidence: String(rubric.evidence || 'No evidence provided.').trim() || 'No evidence provided.',

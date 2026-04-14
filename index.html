@@ -97,6 +97,38 @@
             </section>
 
             <section class="builder-block builder-form-shell">
+              <div class="preset-library-header">
+                <div>
+                  <p class="eyebrow">Quick Start</p>
+                  <h3>Preset Patient Cards</h3>
+                  <p class="muted small">
+                    Start from a ready-made client profile, then adjust any field you want before beginning the conversation.
+                  </p>
+                </div>
+                <button id="clearPresetFiltersBtn" class="btn btn-outline btn-small" type="button">Reset Filters</button>
+              </div>
+              <div class="preset-filter-row">
+                <label class="preset-filter">
+                  Main Issue
+                  <select id="presetIssueFilter">
+                    <option value="">All issues</option>
+                  </select>
+                </label>
+                <label class="preset-filter">
+                  Severity
+                  <select id="presetSeverityFilter">
+                    <option value="">All severities</option>
+                  </select>
+                </label>
+                <label class="preset-filter">
+                  Life Stage
+                  <select id="presetLifeStageFilter">
+                    <option value="">All life stages</option>
+                  </select>
+                </label>
+              </div>
+              <div id="presetCardsGrid" class="preset-grid" aria-live="polite"></div>
+
               <div class="builder-form-grid">
                 <article class="builder-subcard">
                   <p class="eyebrow">Identity</p>
