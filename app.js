@@ -862,7 +862,7 @@ async function handleStartConversation() {
       {
         speaker: 'Patient',
         role: 'assistant',
-        content: openingMessage.trim(),
+        content: stripPoses(openingMessage),
       },
     ];
     state.conversationStarted = true;
@@ -887,8 +887,12 @@ function buildPatientSystemPrompt(profile) {
 
   return (
     'You are roleplaying a simulated counseling client for training. Stay fully in character. ' +
-    'Reply in first person as the patient, keep responses short and natural, usually 1-4 sentences, and avoid sounding scripted. ' +
-    'Do not become a therapist, do not provide advice to yourself, and do not break character.\n\n' +
+    'Reply in first person as the patient. Keep responses short and natural — many turns should be only 1-2 sentences, ' +
+    'occasionally 3 sentences, rarely more. Real patients in counseling do not give speeches.\n' +
+    'STRICT RULES:\n' +
+    '- Never write action descriptions, stage directions, or physical gestures (e.g. *sighs*, *looks down*, *fidgets*). Plain spoken words only.\n' +
+    '- Do not become a therapist, do not provide advice to yourself, and do not break character.\n' +
+    '- Do not over-explain or summarize your own feelings clinically.\n\n' +
     `Primary concern: ${formatLabel(profile.issue)}\n` +
     `Gender: ${formatSentence(profile.gender)}\n` +
     `Age: ${profile.age}\n` +
@@ -898,12 +902,12 @@ function buildPatientSystemPrompt(profile) {
     `Goal: ${profile.goal}\n` +
     `Additional notes: ${extraNotes}\n\n` +
     'Conversation style rules:\n' +
-    '- Reveal emotions, stressors, and ambivalence naturally.\n' +
+    '- Reveal emotions, stressors, and ambivalence naturally through words, not through descriptions of body language.\n' +
     '- Be consistent with the profile.\n' +
     '- Do not solve the issue quickly.\n' +
-    '- If the counselor asks a question, answer as the patient.\n' +
-    '- If the counselor reflects, respond the way a real patient would in a short chat.\n' +
-    '- Avoid long monologues.'
+    '- If the counselor asks a question, answer briefly as the patient would in real life.\n' +
+    '- If the counselor reflects, respond the way a real patient would — sometimes just a short confirmation or a shift.\n' +
+    '- Avoid long monologues. Shorter is almost always better.'
   );
 }
 
@@ -963,7 +967,7 @@ async function handleSendMessage() {
       state.conversation.push({
         speaker: 'Patient',
         role: 'assistant',
-        content: patientReply.trim(),
+        content: stripPoses(patientReply),
       });
     }
 
@@ -1301,9 +1305,9 @@ function resetFeedback() {
 function buildFidelitySystemPrompt(profile) {
   const extraNotes = profile.additionalDetails || 'None';
   return (
-    'You are a simulation fidelity reviewer for a counseling training platform. ' +
-    'A patient simulator has produced a draft response in a counseling session. ' +
-    'Evaluate whether the response is realistic and true to the patient profile.\n\n' +
+    'You are a strict simulation fidelity reviewer for a counseling training platform. ' +
+    'Your job is to catch problems — do not approve a draft unless it genuinely passes every criterion below. ' +
+    'Be demanding: a response that is merely acceptable is not good enough.\n\n' +
     'Patient profile:\n' +
     `Primary concern: ${formatLabel(profile.issue)}\n` +
     `Gender: ${formatSentence(profile.gender)}\n` +
@@ -1313,15 +1317,17 @@ function buildFidelitySystemPrompt(profile) {
     `Current event: ${profile.event}\n` +
     `Goal: ${profile.goal}\n` +
     `Additional notes: ${extraNotes}\n\n` +
-    'Review criteria:\n' +
-    '1. In-character consistency: Does the response match the profile (age, occupation, severity, presenting concern)?\n' +
-    '2. Emotional authenticity: Is the emotional depth appropriate for the stated severity — not too flat, not too dramatic?\n' +
-    '3. Length and naturalism: Is it 1-4 sentences, conversational, and not scripted or clinical-sounding?\n' +
-    '4. Appropriate reactivity: Does it make sense as a direct reaction to what the counselor just said?\n' +
-    '5. No role reversal: Does the patient stay as a client, not giving advice, analyzing themselves clinically, or solving their own problem?\n\n' +
+    'Reject the draft (approved: false) if ANY of the following are true:\n' +
+    '1. Stage directions or poses: The response contains action text such as *sighs*, *looks away*, *pauses*, or any *asterisk-wrapped* gesture.\n' +
+    '2. Wrong emotional register: The emotional depth does not match the stated severity level — too flat for severe, too dramatic for mild.\n' +
+    '3. Too long: The response is more than 3 sentences. Real patients in counseling give short replies.\n' +
+    '4. Scripted or clinical tone: The patient sounds like they are narrating their own psychology rather than speaking naturally ("I tend to cope by...", "My pattern is...", "I realize that...").\n' +
+    '5. Reactive mismatch: The response does not directly follow from what the counselor just said — ignores the question or reflection.\n' +
+    '6. Role reversal: The patient gives advice, offers insight to the counselor, or resolves their own issue too neatly.\n\n' +
+    'Only approve if none of the above apply and the response sounds like a real person talking in a therapy session.\n\n' +
     'Respond with JSON only: { "approved": boolean, "feedback": string }\n' +
-    'If approved is true, feedback should be an empty string.\n' +
-    'If approved is false, feedback must be specific and actionable (under 80 words) to guide a revision.'
+    'If approved is false, feedback must name the specific criterion that failed and say exactly what to fix (under 80 words).\n' +
+    'If approved is true, feedback must be an empty string.'
   );
 }
 
@@ -1398,7 +1404,7 @@ async function generateHighFidelityReply(config, profile) {
         ? buildConversationMessages()
         : buildConversationMessagesWithRevision(lastDraft, lastFeedback);
 
-    lastDraft = (
+    lastDraft = stripPoses(
       await callOpenRouter({
         apiKey: config.apiKey,
         model: config.model,
@@ -1407,7 +1413,7 @@ async function generateHighFidelityReply(config, profile) {
         max_tokens: 260,
         requireJson: false,
       })
-    ).trim();
+    );
 
     if (attempt === MAX_ATTEMPTS) {
       trajectory.push({ attempt, draft: lastDraft, fidelity: null });
@@ -1751,6 +1757,13 @@ function loadConfigFromStorage() {
   } catch (error) {
     console.warn('Failed to load local config.', error);
   }
+}
+
+function stripPoses(text) {
+  return String(text || '')
+    .replace(/\*[^*]+\*/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 function formatLabel(value) {
