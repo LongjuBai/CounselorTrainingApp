@@ -193,7 +193,8 @@ const PRESET_PATIENTS = [
 
 const dom = {
   apiKeyInput: document.getElementById('apiKeyInput'),
-  modelInput: document.getElementById('modelInput'),
+  simulatorModelInput: document.getElementById('simulatorModelInput'),
+  reviewerModelInput: document.getElementById('reviewerModelInput'),
   openrouterFileInput: document.getElementById('openrouterFileInput'),
   rememberToggle: document.getElementById('rememberToggle'),
   mainIssueGrid: document.getElementById('mainIssueGrid'),
@@ -301,7 +302,8 @@ function bindEventListeners() {
   dom.presetLifeStageFilter.addEventListener('change', renderPresetCards);
   dom.clearPresetFiltersBtn.addEventListener('click', clearPresetFilters);
   dom.apiKeyInput.addEventListener('input', maybePersistConfig);
-  dom.modelInput.addEventListener('input', maybePersistConfig);
+  dom.simulatorModelInput.addEventListener('input', maybePersistConfig);
+  dom.reviewerModelInput.addEventListener('input', maybePersistConfig);
   dom.rememberToggle.addEventListener('change', maybePersistConfig);
   dom.chatInput.addEventListener('input', updateActionAvailability);
   dom.simpleModeBtn.addEventListener('click', () => handleModeChange('simple'));
@@ -788,7 +790,7 @@ async function handleOpenRouterFile(event) {
   try {
     const content = await file.text();
     const { model, apiKey } = parseOpenRouterText(content);
-    if (model) dom.modelInput.value = model;
+    if (model) dom.simulatorModelInput.value = model;
     if (apiKey) dom.apiKeyInput.value = apiKey;
 
     maybePersistConfig();
@@ -817,8 +819,8 @@ function parseOpenRouterText(rawText) {
 
 async function handleStartConversation() {
   const config = readConfig();
-  if (!config.apiKey || !config.model) {
-    setStatus('Please enter API key and model first.', 'error', 'Missing Config');
+  if (!config.apiKey || !config.simulatorModel) {
+    setStatus('Please enter API key and simulator model first.', 'error', 'Missing Config');
     return;
   }
 
@@ -839,7 +841,7 @@ async function handleStartConversation() {
   try {
     const openingMessage = await callOpenRouter({
       apiKey: config.apiKey,
-      model: config.model,
+      model: config.simulatorModel,
       messages: [
         {
           role: 'system',
@@ -913,8 +915,12 @@ function buildPatientSystemPrompt(profile) {
 
 async function handleSendMessage() {
   const config = readConfig();
-  if (!config.apiKey || !config.model) {
-    setStatus('Please enter API key and model first.', 'error', 'Missing Config');
+  if (!config.apiKey || !config.simulatorModel) {
+    setStatus('Please enter API key and simulator model first.', 'error', 'Missing Config');
+    return;
+  }
+  if (state.chatMode === 'high-fidelity' && !config.reviewerModel) {
+    setStatus('Please enter a reviewer model for High-Fidelity mode.', 'error', 'Missing Config');
     return;
   }
 
@@ -958,7 +964,7 @@ async function handleSendMessage() {
       setStatus('The simulated patient is generating a reply...', 'info', 'Generating Reply');
       const patientReply = await callOpenRouter({
         apiKey: config.apiKey,
-        model: config.model,
+        model: config.simulatorModel,
         messages: buildConversationMessages(),
         temperature: 0.8,
         max_tokens: 260,
@@ -1016,8 +1022,8 @@ function handleEndConversation() {
 
 async function handleStartEvaluation() {
   const config = readConfig();
-  if (!config.apiKey || !config.model) {
-    setStatus('Please enter API key and model first.', 'error', 'Missing Config');
+  if (!config.apiKey || !config.simulatorModel) {
+    setStatus('Please enter API key and simulator model first.', 'error', 'Missing Config');
     return;
   }
 
@@ -1106,7 +1112,7 @@ async function handleStartEvaluation() {
   try {
     const rawFeedback = await callOpenRouter({
       apiKey: config.apiKey,
-      model: config.model,
+      model: config.simulatorModel,
       messages,
       temperature: 0.2,
       max_tokens: 2200,
@@ -1341,7 +1347,7 @@ async function callFidelityReviewer(config, profile, conversationMessages, draft
   try {
     const raw = await callOpenRouter({
       apiKey: config.apiKey,
-      model: config.model,
+      model: config.reviewerModel,
       messages: [
         {
           role: 'system',
@@ -1407,7 +1413,7 @@ async function generateHighFidelityReply(config, profile) {
     lastDraft = stripPoses(
       await callOpenRouter({
         apiKey: config.apiKey,
-        model: config.model,
+        model: config.simulatorModel,
         messages,
         temperature: 0.8,
         max_tokens: 260,
@@ -1724,7 +1730,8 @@ function updateActionAvailability() {
 function readConfig() {
   return {
     apiKey: dom.apiKeyInput.value.trim(),
-    model: dom.modelInput.value.trim(),
+    simulatorModel: dom.simulatorModelInput.value.trim(),
+    reviewerModel: dom.reviewerModelInput.value.trim(),
   };
 }
 
@@ -1739,7 +1746,8 @@ function maybePersistConfig() {
     STORAGE_KEY,
     JSON.stringify({
       apiKey: config.apiKey,
-      model: config.model,
+      simulatorModel: config.simulatorModel,
+      reviewerModel: config.reviewerModel,
       remember: true,
     }),
   );
@@ -1752,7 +1760,8 @@ function loadConfigFromStorage() {
   try {
     const parsed = JSON.parse(raw);
     if (parsed.apiKey) dom.apiKeyInput.value = parsed.apiKey;
-    if (parsed.model) dom.modelInput.value = parsed.model;
+    if (parsed.simulatorModel) dom.simulatorModelInput.value = parsed.simulatorModel;
+    if (parsed.reviewerModel) dom.reviewerModelInput.value = parsed.reviewerModel;
     dom.rememberToggle.checked = Boolean(parsed.remember);
   } catch (error) {
     console.warn('Failed to load local config.', error);

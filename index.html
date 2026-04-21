@@ -41,8 +41,12 @@
               <input id="apiKeyInput" type="password" placeholder="sk-or-v1-..." autocomplete="off" />
             </label>
             <label>
-              Model
-              <input id="modelInput" type="text" value="stepfun/step-3.5-flash:free" />
+              Simulator Model
+              <input id="simulatorModelInput" type="text" value="stepfun/step-3.5-flash:free" />
+            </label>
+            <label>
+              Reviewer Model <span class="config-hint">(used in High-Fidelity mode)</span>
+              <input id="reviewerModelInput" type="text" placeholder="e.g. openai/gpt-4o-mini" />
             </label>
             <label class="file-label">
               Load `openrouter.txt`
@@ -50,7 +54,7 @@
             </label>
             <label class="checkbox-row">
               <input id="rememberToggle" type="checkbox" checked />
-              Remember API key + model in this browser
+              Remember API key + models in this browser
             </label>
           </div>
         </div>
