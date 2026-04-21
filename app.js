@@ -228,6 +228,10 @@ const dom = {
   sendMessageBtn: document.getElementById('sendMessageBtn'),
   endConversationBtn: document.getElementById('endConversationBtn'),
   startEvaluationBtn: document.getElementById('startEvaluationBtn'),
+  simpleModeBtn: document.getElementById('simpleModeBtn'),
+  highFidelityModeBtn: document.getElementById('highFidelityModeBtn'),
+  devModeToggle: document.getElementById('devModeToggle'),
+  modeDescription: document.getElementById('modeDescription'),
   combinedSuggestions: document.getElementById('combinedSuggestions'),
   statusBadge: document.getElementById('statusBadge'),
   statusTitle: document.getElementById('statusTitle'),
@@ -257,6 +261,9 @@ const state = {
   activeProfile: null,
   patientSystemPrompt: '',
   isLoading: false,
+  chatMode: 'simple',      // 'simple' | 'high-fidelity'
+  devMode: false,
+  trajectories: {},        // { conversationIndex: trajectoryArray }
 };
 
 void init();
@@ -297,6 +304,9 @@ function bindEventListeners() {
   dom.modelInput.addEventListener('input', maybePersistConfig);
   dom.rememberToggle.addEventListener('change', maybePersistConfig);
   dom.chatInput.addEventListener('input', updateActionAvailability);
+  dom.simpleModeBtn.addEventListener('click', () => handleModeChange('simple'));
+  dom.highFidelityModeBtn.addEventListener('click', () => handleModeChange('high-fidelity'));
+  dom.devModeToggle.addEventListener('click', handleDevModeToggle);
 
   [
     dom.genderSelect,
@@ -310,6 +320,29 @@ function bindEventListeners() {
     element.addEventListener('input', handleProfileDraftChange);
     element.addEventListener('change', handleProfileDraftChange);
   });
+}
+
+function handleModeChange(mode) {
+  state.chatMode = mode;
+  dom.simpleModeBtn.classList.toggle('is-active', mode === 'simple');
+  dom.highFidelityModeBtn.classList.toggle('is-active', mode === 'high-fidelity');
+
+  if (mode === 'high-fidelity') {
+    dom.devModeToggle.hidden = false;
+    dom.modeDescription.textContent =
+      'High-Fidelity mode adds a Fidelity Reviewer pass after each draft — slower but with higher simulation quality.';
+  } else {
+    dom.devModeToggle.hidden = true;
+    dom.modeDescription.textContent =
+      'Simple mode generates the patient reply in a single pass — faster, but no fidelity check.';
+  }
+}
+
+function handleDevModeToggle() {
+  state.devMode = !state.devMode;
+  dom.devModeToggle.classList.toggle('is-active', state.devMode);
+  dom.devModeToggle.textContent = state.devMode ? 'Dev Mode: ON' : 'Dev Mode';
+  renderChatTranscript();
 }
 
 function handleProfileDraftChange() {
@@ -834,6 +867,7 @@ async function handleStartConversation() {
     ];
     state.conversationStarted = true;
     state.conversationEnded = false;
+    state.trajectories = {};
     dom.chatInput.value = '';
     resetFeedback();
     renderConversationStatus();
@@ -905,23 +939,34 @@ async function handleSendMessage() {
   renderChatTranscript();
   updateActionAvailability();
   setLoading(true);
-  setStatus('The simulated patient is generating a reply...', 'info', 'Generating Reply');
 
   try {
-    const patientReply = await callOpenRouter({
-      apiKey: config.apiKey,
-      model: config.model,
-      messages: buildConversationMessages(),
-      temperature: 0.8,
-      max_tokens: 260,
-      requireJson: false,
-    });
+    if (state.chatMode === 'high-fidelity') {
+      const result = await generateHighFidelityReply(config, state.activeProfile);
+      const patientTurnIdx = state.conversation.length;
+      state.conversation.push({
+        speaker: 'Patient',
+        role: 'assistant',
+        content: result.reply,
+      });
+      state.trajectories[patientTurnIdx] = result.trajectory;
+    } else {
+      setStatus('The simulated patient is generating a reply...', 'info', 'Generating Reply');
+      const patientReply = await callOpenRouter({
+        apiKey: config.apiKey,
+        model: config.model,
+        messages: buildConversationMessages(),
+        temperature: 0.8,
+        max_tokens: 260,
+        requireJson: false,
+      });
+      state.conversation.push({
+        speaker: 'Patient',
+        role: 'assistant',
+        content: patientReply.trim(),
+      });
+    }
 
-    state.conversation.push({
-      speaker: 'Patient',
-      role: 'assistant',
-      content: patientReply.trim(),
-    });
     renderChatTranscript();
     updateActionAvailability();
     setStatus('Patient replied. Continue the conversation or end it when ready.', 'success', 'Reply Received');
@@ -1110,7 +1155,7 @@ function renderChatTranscript() {
     return;
   }
 
-  state.conversation.forEach((turn) => {
+  state.conversation.forEach((turn, index) => {
     const message = document.createElement('div');
     const isCounselor = turn.speaker === 'Counselor';
     message.className = `chat-message ${isCounselor ? 'counselor' : 'patient'}`;
@@ -1130,6 +1175,10 @@ function renderChatTranscript() {
     bubble.appendChild(meta);
     message.appendChild(bubble);
     dom.chatTranscript.appendChild(message);
+
+    if (!isCounselor && state.devMode && state.chatMode === 'high-fidelity' && state.trajectories[index]) {
+      dom.chatTranscript.appendChild(renderTrajectoryBlock(state.trajectories[index]));
+    }
   });
 
   dom.chatTranscript.scrollTop = dom.chatTranscript.scrollHeight;
@@ -1247,6 +1296,184 @@ function resetFeedback() {
     angle.rubrics.textContent = 'No rubric details yet.';
   });
   dom.combinedSuggestions.textContent = 'End the conversation and start evaluation to see next-step guidance.';
+}
+
+function buildFidelitySystemPrompt(profile) {
+  const extraNotes = profile.additionalDetails || 'None';
+  return (
+    'You are a simulation fidelity reviewer for a counseling training platform. ' +
+    'A patient simulator has produced a draft response in a counseling session. ' +
+    'Evaluate whether the response is realistic and true to the patient profile.\n\n' +
+    'Patient profile:\n' +
+    `Primary concern: ${formatLabel(profile.issue)}\n` +
+    `Gender: ${formatSentence(profile.gender)}\n` +
+    `Age: ${profile.age}\n` +
+    `Occupation: ${profile.occupation}\n` +
+    `Severity: ${profile.severity}\n` +
+    `Current event: ${profile.event}\n` +
+    `Goal: ${profile.goal}\n` +
+    `Additional notes: ${extraNotes}\n\n` +
+    'Review criteria:\n' +
+    '1. In-character consistency: Does the response match the profile (age, occupation, severity, presenting concern)?\n' +
+    '2. Emotional authenticity: Is the emotional depth appropriate for the stated severity — not too flat, not too dramatic?\n' +
+    '3. Length and naturalism: Is it 1-4 sentences, conversational, and not scripted or clinical-sounding?\n' +
+    '4. Appropriate reactivity: Does it make sense as a direct reaction to what the counselor just said?\n' +
+    '5. No role reversal: Does the patient stay as a client, not giving advice, analyzing themselves clinically, or solving their own problem?\n\n' +
+    'Respond with JSON only: { "approved": boolean, "feedback": string }\n' +
+    'If approved is true, feedback should be an empty string.\n' +
+    'If approved is false, feedback must be specific and actionable (under 80 words) to guide a revision.'
+  );
+}
+
+async function callFidelityReviewer(config, profile, conversationMessages, draftReply) {
+  const recentExchange = conversationMessages
+    .filter((m) => m.role !== 'system')
+    .slice(-6)
+    .map((m) => `${m.role === 'user' ? 'Counselor' : 'Patient'}: ${m.content}`)
+    .join('\n');
+
+  try {
+    const raw = await callOpenRouter({
+      apiKey: config.apiKey,
+      model: config.model,
+      messages: [
+        {
+          role: 'system',
+          content: buildFidelitySystemPrompt(profile),
+        },
+        {
+          role: 'user',
+          content:
+            `Conversation so far:\n${recentExchange}\n\n` +
+            `Simulator draft response:\nPatient: ${draftReply}\n\n` +
+            'Evaluate this draft. Return JSON only: { "approved": boolean, "feedback": string }',
+        },
+      ],
+      temperature: 0.2,
+      max_tokens: 200,
+      requireJson: true,
+    });
+
+    const parsed = parseJsonFromResponse(raw);
+    return {
+      approved: Boolean(parsed.approved),
+      feedback: String(parsed.feedback || '').trim(),
+    };
+  } catch (error) {
+    console.warn('Fidelity reviewer call failed, accepting draft:', error);
+    return { approved: true, feedback: '' };
+  }
+}
+
+function buildConversationMessagesWithRevision(lastDraft, feedback) {
+  const history = state.conversation.slice(-12).map((turn) => ({
+    role: turn.role,
+    content: turn.content,
+  }));
+
+  const revisedSystemPrompt =
+    state.patientSystemPrompt +
+    `\n\nREVISION NOTE: Your previous response was: "${lastDraft}". ` +
+    `Fidelity reviewer feedback: ${feedback} ` +
+    `Please revise your response to address the feedback while staying fully in character.`;
+
+  return [{ role: 'system', content: revisedSystemPrompt }, ...history];
+}
+
+async function generateHighFidelityReply(config, profile) {
+  const MAX_ATTEMPTS = 3;
+  const trajectory = [];
+  let lastDraft = '';
+  let lastFeedback = '';
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    if (attempt === 1) {
+      setStatus('Generating patient reply...', 'info', 'Generating Reply');
+    } else {
+      setStatus(`Refining patient reply (attempt ${attempt} of ${MAX_ATTEMPTS})...`, 'info', 'Refining Reply');
+    }
+
+    const messages =
+      attempt === 1
+        ? buildConversationMessages()
+        : buildConversationMessagesWithRevision(lastDraft, lastFeedback);
+
+    lastDraft = (
+      await callOpenRouter({
+        apiKey: config.apiKey,
+        model: config.model,
+        messages,
+        temperature: 0.8,
+        max_tokens: 260,
+        requireJson: false,
+      })
+    ).trim();
+
+    if (attempt === MAX_ATTEMPTS) {
+      trajectory.push({ attempt, draft: lastDraft, fidelity: null });
+      break;
+    }
+
+    setStatus('Fidelity Reviewer is checking the draft...', 'info', 'Fidelity Check');
+    const fidelityResult = await callFidelityReviewer(config, profile, messages, lastDraft);
+    trajectory.push({ attempt, draft: lastDraft, fidelity: fidelityResult });
+
+    if (fidelityResult.approved) break;
+    lastFeedback = fidelityResult.feedback;
+  }
+
+  return { reply: lastDraft, trajectory };
+}
+
+function renderTrajectoryBlock(trajectory) {
+  const container = document.createElement('details');
+  container.className = 'dev-trajectory';
+
+  const summary = document.createElement('summary');
+  summary.textContent = `Fidelity trajectory — ${trajectory.length} attempt${trajectory.length !== 1 ? 's' : ''}`;
+  container.appendChild(summary);
+
+  const body = document.createElement('div');
+  body.className = 'dev-trajectory-body';
+
+  trajectory.forEach(({ attempt, draft, fidelity }) => {
+    const attemptEl = document.createElement('div');
+    attemptEl.className = 'dev-attempt';
+
+    const label = document.createElement('p');
+    label.className = 'dev-attempt-label';
+    label.textContent = `Attempt ${attempt}`;
+    attemptEl.appendChild(label);
+
+    const draftEl = document.createElement('p');
+    draftEl.className = 'dev-attempt-draft';
+    draftEl.textContent = `"${draft}"`;
+    attemptEl.appendChild(draftEl);
+
+    if (fidelity === null) {
+      const badge = document.createElement('span');
+      badge.className = 'dev-fidelity-badge dev-final-badge';
+      badge.textContent = 'Accepted — max attempts reached';
+      attemptEl.appendChild(badge);
+    } else {
+      const badge = document.createElement('span');
+      badge.className = `dev-fidelity-badge ${fidelity.approved ? 'passed' : 'needs-revision'}`;
+      badge.textContent = fidelity.approved ? 'Fidelity: Passed' : 'Fidelity: Needs revision';
+      attemptEl.appendChild(badge);
+
+      if (!fidelity.approved && fidelity.feedback) {
+        const feedbackEl = document.createElement('p');
+        feedbackEl.className = 'dev-fidelity-feedback';
+        feedbackEl.textContent = fidelity.feedback;
+        attemptEl.appendChild(feedbackEl);
+      }
+    }
+
+    body.appendChild(attemptEl);
+  });
+
+  container.appendChild(body);
+  return container;
 }
 
 async function callOpenRouter({ apiKey, model, messages, temperature, max_tokens, requireJson }) {

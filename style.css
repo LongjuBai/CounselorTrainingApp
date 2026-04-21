@@ -1212,3 +1212,183 @@ summary:focus-visible {
     max-width: 100%;
   }
 }
+
+/* ---- Chat Mode Bar ---- */
+.chat-mode-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.chat-mode-group {
+  display: flex;
+  background: var(--bg-2);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.btn-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.42rem 1rem;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  font-family: inherit;
+}
+
+.btn-mode.is-active {
+  background: var(--bg-1);
+  color: var(--ink-1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.btn-mode:hover:not(.is-active) {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.mode-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.1rem 0.42rem;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--ink-3);
+  letter-spacing: 0.01em;
+}
+
+.btn-mode.is-active .mode-tag {
+  background: rgba(15, 118, 110, 0.12);
+  color: #0f766e;
+}
+
+.btn-dev-mode {
+  font-size: 0.78rem;
+  font-family: monospace;
+  padding: 0.36rem 0.85rem;
+  border-radius: 6px;
+  border: 1.5px solid rgba(148, 163, 184, 0.45);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.btn-dev-mode:hover {
+  border-color: var(--ink-2);
+}
+
+.btn-dev-mode.is-active {
+  background: #111a11;
+  color: #6ee36e;
+  border-color: #4caf50;
+}
+
+.mode-desc {
+  margin: 0 0 1rem;
+}
+
+/* ---- Fidelity Trajectory (Dev Mode) ---- */
+.dev-trajectory {
+  margin: 0.2rem 0.5rem 0.6rem;
+  border: 1px dashed rgba(148, 163, 184, 0.5);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  background: rgba(248, 250, 252, 0.6);
+}
+
+.dev-trajectory summary {
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+  color: var(--ink-2);
+  font-family: monospace;
+  font-size: 0.76rem;
+  user-select: none;
+  list-style: none;
+}
+
+.dev-trajectory summary::before {
+  content: '▶ ';
+  font-size: 0.65rem;
+}
+
+.dev-trajectory[open] summary::before {
+  content: '▼ ';
+}
+
+.dev-trajectory-body {
+  padding: 0.25rem 0.75rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.dev-attempt {
+  background: #fff;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 6px;
+  padding: 0.55rem 0.7rem;
+}
+
+.dev-attempt-label {
+  font-family: monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-3);
+  margin: 0 0 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dev-attempt-draft {
+  color: var(--ink-1);
+  font-style: italic;
+  margin: 0 0 0.45rem;
+  line-height: 1.55;
+  font-size: 0.81rem;
+}
+
+.dev-fidelity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.71rem;
+  font-weight: 700;
+  padding: 0.14rem 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 0.3rem;
+  font-family: monospace;
+}
+
+.dev-fidelity-badge.passed {
+  background: #e6f4ea;
+  color: #1a7a35;
+}
+
+.dev-fidelity-badge.needs-revision {
+  background: #fce8e6;
+  color: #c5221f;
+}
+
+.dev-final-badge {
+  background: #e8f0fe;
+  color: #1967d2;
+}
+
+.dev-fidelity-feedback {
+  color: var(--ink-2);
+  font-size: 0.77rem;
+  line-height: 1.5;
+  margin: 0.15rem 0 0;
+  padding: 0.3rem 0.5rem;
+  border-left: 2px solid rgba(197, 34, 31, 0.35);
+}

@@ -232,6 +232,20 @@
           Hold a short multi-turn conversation with the simulated patient. When you are done, end the
           conversation and start evaluation.
         </p>
+
+        <div class="chat-mode-bar">
+          <div class="chat-mode-group" role="group" aria-label="Simulation mode">
+            <button id="simpleModeBtn" class="btn btn-mode is-active" type="button">
+              Simple Mode <span class="mode-tag">Faster</span>
+            </button>
+            <button id="highFidelityModeBtn" class="btn btn-mode" type="button">
+              High-Fidelity Mode <span class="mode-tag">Higher Quality</span>
+            </button>
+          </div>
+          <button id="devModeToggle" class="btn btn-dev-mode" type="button" hidden>Dev Mode</button>
+        </div>
+        <p id="modeDescription" class="muted small mode-desc">Simple mode generates the patient reply in a single pass — faster, but no fidelity check.</p>
+
         <div class="chat-panel">
           <div class="chat-shell">
             <div class="chat-header">
